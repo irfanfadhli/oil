@@ -18,7 +18,7 @@ jobs:
 
       - name: generate
         run: |
-          go generate ./...
+          go generate -skip="mockgen" ./...
 
       - name: Commit generated files
         if: github.ref == 'refs/heads/main'
@@ -28,4 +28,6 @@ jobs:
           
           find . -name '*gen.go' -print0 | xargs -0 git add -f
           git commit -m "chore: commit generated files" || echo "No changes to commit"
-          git push origin main
+          
+          git remote set-url origin https://x-access-token:${{ secrets.PAT_PUSH_TOKEN }}@github.com/${{ github.repository }}
+          git push --force-with-lease origin main
