@@ -11,8 +11,8 @@
 **/mock.go
 **/mock
 
-# Ignore generated files
-**gen.go
+# Disable Ignore generated files
+#**gen.go
 
 # Ignore build artifacts
 node_modules/
@@ -21,8 +21,8 @@ tmp/
 bin/
 .vercel
 
-# Ignore docs
-docs/
+# Disable Ignore docs
+#docs/
 
 # Ignore coverage reports
 *.log
