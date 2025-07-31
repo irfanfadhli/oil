@@ -14,7 +14,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: setup go
@@ -30,7 +30,7 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         id: create-pr
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           title: "chore: update generated files"
           body: |
             This PR updates `*gen.go` files from the latest `go generate` output.
@@ -49,4 +49,4 @@ jobs:
         run: |
           gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --squash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
