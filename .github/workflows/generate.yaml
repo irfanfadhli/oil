@@ -26,29 +26,9 @@ jobs:
         run: |
           go generate -skip="mockgen" ./...
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-
-      - name: Switch to sync branch and commit generated files
-        id: commit-changes
-        run: |
-          git checkout -B sync
-          find . -name '*gen.go' -print0 | xargs -0 git add -f
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-            echo "has-changes=false" >> $GITHUB_OUTPUT
-          else
-            git commit -m "chore: auto-generate files"
-            git push -f origin sync
-            echo "has-changes=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create or update PR to sync branch
+      - name: Create or update PR with generated files
         uses: peter-evans/create-pull-request@v5
         id: create-pr
-        if: steps.commit-changes.outputs.has-changes == 'true'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: "chore: update generated files"
@@ -61,6 +41,8 @@ jobs:
           branch: sync
           base: main
           delete-branch: false
+          add-paths: |
+            **/*gen.go
 
       - name: Enable auto-merge for PR
         if: steps.create-pr.outputs.pull-request-number
