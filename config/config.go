@@ -19,6 +19,33 @@ type Config struct {
 			GracePeriodSeconds   int64 `envconfig:"GRACE_PERIOD_SECONDS"`
 		} `envconfig:"SHUTDOWN"`
 	} `envconfig:"SERVER"`
+
+	DB struct {
+		Postgres struct {
+			MaxRetry       int    `envconfig:"MAX_RETRY"`
+			RetryWaitTime  int    `envconfig:"RETRY_WAIT_TIME"`
+			MigrationTable string `envconfig:"MIGRATION_TABLE"`
+			AutoMigrate    bool   `envconfig:"AUTO_MIGRATE"`
+			Read           struct {
+				Host     string `envconfig:"HOST"`
+				Port     string `envconfig:"PORT"`
+				Username string `envconfig:"USER"`
+				Password string `envconfig:"PASSWORD"`
+				Name     string `envconfig:"NAME"`
+				Timezone string `envconfig:"TIMEZONE"`
+				SSLMode  string `envconfig:"SSL_MODE"`
+			} `envconfig:"READ"`
+			Write struct {
+				Host     string `envconfig:"HOST"`
+				Port     string `envconfig:"PORT"`
+				Username string `envconfig:"USER"`
+				Password string `envconfig:"PASSWORD"`
+				Name     string `envconfig:"NAME"`
+				Timezone string `envconfig:"TIMEZONE"`
+				SSLMode  string `envconfig:"SSL_MODE"`
+			} `envconfig:"WRITE"`
+		} `envconfig:"POSTGRES"`
+	} `envconfig:"DB"`
 }
 
 var (

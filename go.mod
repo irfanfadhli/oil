@@ -6,8 +6,10 @@ require (
 	github.com/air-verse/air v1.62.0
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/google/wire v0.6.0
+	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/lib/pq v1.10.9
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/swaggo/swag v1.16.5

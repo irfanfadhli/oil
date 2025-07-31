@@ -5,6 +5,7 @@ package di
 
 import (
 	"oil/config"
+	"oil/infras/postgres"
 	testHandler "oil/internal/handlers/test"
 	"oil/transport/http"
 	"oil/transport/http/router"
@@ -16,6 +17,10 @@ var configurations = wire.NewSet(
 	config.Get,
 )
 
+var infrastructures = wire.NewSet(
+	postgres.NewConnection,
+)
+
 var routing = wire.NewSet(
 	wire.Struct(new(router.DomainHandlers), "*"),
 	testHandler.New,
@@ -25,6 +30,7 @@ var routing = wire.NewSet(
 func InitializeService() *http.HTTP {
 	wire.Build(
 		configurations,
+		infrastructures,
 		routing,
 		http.New,
 	)
