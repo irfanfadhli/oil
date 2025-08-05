@@ -32,6 +32,11 @@ type Config struct {
 			Enable           bool   `envconfig:"ENABLE"`
 			MaxAgeSeconds    int    `envconfig:"MAX_AGE_SECONDS"`
 		} `envconfig:"CORS"`
+		RateLimiter struct {
+			Enable        bool `envconfig:"ENABLE"`
+			MaxRequests   int  `envconfig:"MAX_REQUESTS"`
+			WindowSeconds int  `envconfig:"WINDOW_SECONDS"`
+		} `envconfig:"RATE_LIMITER"`
 	} `envconfig:"APP"`
 
 	JWT struct {

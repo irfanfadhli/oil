@@ -7,8 +7,6 @@ import (
 )
 
 func TestTimezoneInit(t *testing.T) {
-	// Since timezone is initialized via init(), just test the functions work
-
 	// Test Now() function
 	now := timezone.Now()
 	if now.IsZero() {
@@ -25,7 +23,6 @@ func TestTimezoneInit(t *testing.T) {
 }
 
 func TestTimezoneWithStandardLocation(t *testing.T) {
-	// Test ToAppTime conversion
 	utcTime := time.Now().UTC()
 	appTime := timezone.ToAppTime(utcTime)
 
@@ -38,7 +35,6 @@ func TestTimezoneWithStandardLocation(t *testing.T) {
 }
 
 func TestTimezoneFormat(t *testing.T) {
-	// Test Format function
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	formatted := timezone.Format(testTime, "2006-01-02 15:04:05 MST")
 
@@ -48,7 +44,6 @@ func TestTimezoneFormat(t *testing.T) {
 
 	t.Logf("Formatted time: %s", formatted)
 
-	// Test Parse function
 	parsed, err := timezone.Parse("2006-01-02", "2024-01-01")
 	if err != nil {
 		t.Errorf("Parse() failed: %v", err)

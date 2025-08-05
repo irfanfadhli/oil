@@ -74,8 +74,9 @@ const (
 )
 
 const (
-	ResponseErrorPrepareShutdown = "SERVER PREPARING TO SHUT DOWN"
-	ResponseErrorUnhealthy       = "SERVER UNHEALTHY"
+	ResponseErrorPrepareShutdown      = "SERVER PREPARING TO SHUT DOWN"
+	ResponseErrorUnhealthy            = "SERVER UNHEALTHY"
+	ResponseErrorRequestLimitExceeded = "REQUEST LIMIT EXCEEDED"
 )
 
 const (

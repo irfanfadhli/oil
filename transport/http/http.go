@@ -75,26 +75,31 @@ func (h *HTTP) Adaptor() http.HandlerFunc {
 }
 
 func (h *HTTP) setup() {
-	h.setupRoutes()
+	h.setupFiber()
 	h.setupMiddlewares()
+	h.setupRoutes()
 	h.setupSwaggerDocs()
 	h.setupGracefulShutdown()
 	h.State = ServerStateReady
 }
 
-func (h *HTTP) setupRoutes() {
+func (h *HTTP) setupFiber() {
 	h.fiber = fiber.New(fiber.Config{
 		DisableStartupMessage: true,
 	})
+}
 
+func (h *HTTP) setupRoutes() {
 	h.fiber.Get(RouteHealthCheck, h.healthCheck)
 
 	h.Router.SetupRoutes(h.fiber)
 }
 
 func (h *HTTP) setupMiddlewares() {
+	h.setupServerState()
 	h.setupRecover()
 	h.setupLogger()
+	h.setupRateLimit()
 	h.setupCORS()
 	h.setupTracing()
 	h.logCORSConfigInfo()
@@ -112,6 +117,10 @@ func (h *HTTP) setupRecover() {
 				Msg("Panic recovered")
 		},
 	}))
+}
+
+func (h *HTTP) setupServerState() {
+	h.fiber.Use(h.serverStateMiddleware())
 }
 
 func (h *HTTP) setupLogger() {
@@ -132,6 +141,22 @@ func (h *HTTP) setupLogger() {
 
 func (h *HTTP) setupTracing() {
 	h.fiber.Use(h.appMiddleware.Tracing)
+}
+
+func (h *HTTP) setupRateLimit() {
+	rateLimitConfig := h.Config.App.RateLimiter
+
+	rateLimitHandler := h.appMiddleware.RateLimit()
+	if rateLimitHandler != nil {
+		log.Info().
+			Bool("enabled", rateLimitConfig.Enable).
+			Int("max_requests", rateLimitConfig.MaxRequests).
+			Int("window_seconds", rateLimitConfig.WindowSeconds).
+			Msg("Rate limiting enabled")
+		h.fiber.Use(rateLimitHandler)
+	} else {
+		log.Info().Msg("Rate limiting disabled")
+	}
 }
 
 func (h *HTTP) setupSwaggerDocs() {
@@ -180,6 +205,28 @@ func (h *HTTP) respondToSigterm(done chan os.Signal) {
 	log.Info().Msg("Cleaning up completed. Shutting down now.")
 }
 
+func (h *HTTP) serverStateMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		switch h.State {
+		case ServerStateReady:
+			// Server is ready to serve, continue normally
+			return c.Next()
+		case ServerStateInGracePeriod:
+			// Server is in grace period. Issue a warning message and continue
+			// serving as usual.
+			log.Warn().Msg("SERVER IS IN GRACE PERIOD")
+
+			return c.Next()
+		case ServerStateInCleanupPeriod:
+			// Server is in cleanup period. Stop the request from actually
+			// invoking any domain services and respond appropriately.
+			return response.WithPreparingShutdown(c)
+		default:
+			return c.Next()
+		}
+	}
+}
+
 func (h *HTTP) setupCORS() {
 	corsConfig := h.Config.App.CORS
 	if corsConfig.Enable {
@@ -221,7 +268,7 @@ func (h *HTTP) healthCheck(c *fiber.Ctx) error {
 	if err := h.DB.Read.Ping(); err != nil {
 		logger.ErrorWithStack(err)
 
-		return response.WithUnhealthy(c) // nolint:wrapcheck
+		return response.WithUnhealthy(c)
 	}
 
 	return response.WithMessage(c, fiber.StatusOK, "ok")
