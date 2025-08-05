@@ -20,7 +20,7 @@ COPY . /app
 WORKDIR /app
 
 RUN make generate
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o engine ./cmd/app/main.gp
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o engine ./cmd/app/main.go
 
 # Step 3: Final
 FROM scratch
