@@ -31,3 +31,6 @@ docs/
 *.log/*
 *.log-/*
 *.log-*/
+
+# Ignore build results
+engine
