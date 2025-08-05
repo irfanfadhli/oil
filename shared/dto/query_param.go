@@ -52,12 +52,15 @@ func (q *QueryParams) FromRequest(ctx *fiber.Ctx, defaultRequest bool) {
 		if q.Page == 0 {
 			q.Page = constant.DefaultValuePage
 		}
+
 		if q.Limit == 0 {
 			q.Limit = constant.DefaultValueLimit
 		}
+
 		if q.SortBy == "" {
 			q.SortBy = constant.DefaultValueSortBy
 		}
+
 		if q.SortDir == "" {
 			q.SortDir = constant.DefaultValueSortDir
 		}

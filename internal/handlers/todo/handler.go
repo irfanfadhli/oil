@@ -1,7 +1,6 @@
 package todo
 
 import (
-	"fmt"
 	"oil/infras/otel"
 	"oil/internal/domains/todo/model"
 	"oil/internal/domains/todo/model/dto"
@@ -74,7 +73,7 @@ func (handler *Handler) CreateTodo(c *fiber.Ctx) error {
 	}
 
 	user, _ := ctx.Value(constant.ContextKeyUserID).(string)
-	scope.AddEvent(fmt.Sprintf("Todo created successfully by user %s", user))
+	scope.AddEvent("Todo created successfully by user " + user)
 
 	return response.WithMessage(c, fiber.StatusCreated, "Todo created successfully")
 }
@@ -201,7 +200,7 @@ func (handler *Handler) UpdateTodo(c *fiber.Ctx) error {
 	}
 
 	user, _ := ctx.Value(constant.ContextKeyUserID).(string)
-	scope.AddEvent(fmt.Sprintf("Todo updated successfully by user %s", user))
+	scope.AddEvent("Todo updated successfully by user " + user)
 
 	return response.WithMessage(c, fiber.StatusOK, "Todo updated successfully")
 }
@@ -233,7 +232,7 @@ func (handler *Handler) DeleteTodo(c *fiber.Ctx) error {
 	}
 
 	user, _ := ctx.Value(constant.ContextKeyUserID).(string)
-	scope.AddEvent(fmt.Sprintf("Todo deleted successfully by user %s", user))
+	scope.AddEvent("Todo deleted successfully by user " + user)
 
 	return response.WithMessage(c, fiber.StatusOK, "Todo deleted successfully")
 }

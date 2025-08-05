@@ -2,19 +2,19 @@ package middleware
 
 import (
 	"fmt"
-	"github.com/gofiber/fiber/v2"
 	"oil/config"
 	"oil/infras/otel"
 	"oil/shared/constant"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 const (
-	otelHttpScopeName       = "http"
-	otelMiddlewareScopeName = "middleware"
+	otelHTTPScopeName = "http"
 )
 
 type AppMiddleware interface {
-	Tracing(next fiber.Handler) fiber.Handler
+	Tracing(c *fiber.Ctx) error
 }
 
 type appMiddleware struct {
@@ -29,28 +29,36 @@ func NewAppMiddleware(otel otel.Otel, config *config.Config) AppMiddleware {
 	}
 }
 
-func (a *appMiddleware) Tracing(next fiber.Handler) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		_, scope := a.otel.NewScope(c.Context(), otelHttpScopeName, fmt.Sprintf("%s.%s.%s", otelHttpScopeName, c.Method(), c.Path()))
-		defer scope.End()
-
-		scope.SetAttributes(map[string]any{
-			"app.name":        a.config.App.Name,
-			"http.path":       c.Path(),
-			"http.method":     c.Method(),
-			"http.user_agent": c.Get(constant.ContextKeyUserAgent),
-			"http.host":       c.Hostname(),
-			"http.source":     c.IP(),
-		})
-
-		if err := next(c); err != nil {
-			return err
-		}
-
-		scope.SetAttributes(map[string]any{
-			"http.status_code": c.Response().StatusCode(),
-		})
-
-		return nil
+func (a *appMiddleware) Tracing(c *fiber.Ctx) error {
+	spanName := fmt.Sprintf("%s %s", c.Method(), c.Path())
+	if c.Path() == "" {
+		spanName = fmt.Sprintf("%s %s", c.Method(), c.Route().Path)
 	}
+
+	ctx, scope := a.otel.NewScope(c.UserContext(), otelHTTPScopeName, spanName)
+	defer scope.End()
+
+	c.SetUserContext(ctx)
+
+	scope.SetAttributes(map[string]any{
+		"app.name":        a.config.App.Name,
+		"http.path":       c.Path(),
+		"http.route":      c.Route().Path,
+		"http.method":     c.Method(),
+		"http.user_agent": c.Get(constant.ContextKeyUserAgent),
+		"http.host":       c.Hostname(),
+		"http.source":     c.IP(),
+	})
+
+	err := c.Next()
+
+	scope.SetAttributes(map[string]any{
+		"http.status_code": c.Response().StatusCode(),
+	})
+
+	if err != nil {
+		scope.TraceError(err)
+	}
+
+	return err
 }

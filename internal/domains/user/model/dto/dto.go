@@ -12,9 +12,9 @@ import (
 )
 
 type CreateUserRequest struct {
-	Email        string  `json:"email" validate:"required,email"`
-	Password     string  `json:"password" validate:"required,min=8"`
-	Level        string  `json:"level" validate:"omitempty,oneof=1 2 3"`
+	Email        string  `json:"email"                   validate:"required,email"`
+	Password     string  `json:"password"                validate:"required,min=8"`
+	Level        string  `json:"level"                   validate:"omitempty,oneof=1 2 3"`
 	FullName     *string `json:"full_name,omitempty"`
 	ProfileImage *string `json:"profile_image,omitempty"`
 	IsVerified   *bool   `json:"is_verified,omitempty"`
@@ -74,7 +74,7 @@ func (r *UserResponse) FromModel(model model.User) {
 }
 
 type UpdateUserRequest struct {
-	Level        *string `json:"level,omitempty" validate:"omitempty,oneof=1 2 3"`
+	Level        *string `json:"level,omitempty"         validate:"omitempty,oneof=1 2 3"`
 	FullName     *string `json:"full_name,omitempty"`
 	ProfileImage *string `json:"profile_image,omitempty"`
 	IsVerified   *bool   `json:"is_verified,omitempty"`

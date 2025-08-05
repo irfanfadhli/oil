@@ -34,6 +34,7 @@ func getDBName(config config.Config, baseName string) string {
 	if config.DB.Postgres.Prefix != "" {
 		return config.DB.Postgres.Prefix + baseName
 	}
+
 	return baseName
 }
 

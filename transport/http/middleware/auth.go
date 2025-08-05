@@ -106,6 +106,7 @@ func (m *authRoleImpl) Auth() fiber.Handler {
 				Msg("Invalid or expired token")
 
 			var message string
+
 			switch {
 			case errors.Is(err, jwt.ErrExpiredToken):
 				message = "Token has expired"
@@ -123,10 +124,13 @@ func (m *authRoleImpl) Auth() fiber.Handler {
 		// Validate that required claims are not empty
 		if claims.UserID == "" {
 			log.Error().Msg("JWT claims: UserID is empty")
+
 			return response.WithError(c, failure.Unauthorized("Invalid token claims"))
 		}
+
 		if claims.Email == "" {
 			log.Error().Msg("JWT claims: Email is empty")
+
 			return response.WithError(c, failure.Unauthorized("Invalid token claims"))
 		}
 
@@ -190,7 +194,7 @@ func (m *authRoleImpl) RBAC(requiredRoles ...string) fiber.Handler {
 			return response.WithError(c, failure.Unauthorized("User role not found"))
 		}
 
-		role := userRole.(string)
+		role, _ := userRole.(string)
 		scope.SetAttributes(map[string]any{
 			"rbac.user_role": role,
 		})
@@ -201,6 +205,7 @@ func (m *authRoleImpl) RBAC(requiredRoles ...string) fiber.Handler {
 					"rbac.result":       "success",
 					"rbac.matched_role": requiredRole,
 				})
+
 				return c.Next()
 			}
 		}

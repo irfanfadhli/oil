@@ -138,6 +138,7 @@ func (s *serviceImpl) Login(ctx context.Context, req dto.LoginRequest) (res dto.
 	}
 
 	var userResponse userDto.UserResponse
+
 	userResponse.FromModel(user)
 
 	res.FromTokenPair(tokenPair)
@@ -146,7 +147,7 @@ func (s *serviceImpl) Login(ctx context.Context, req dto.LoginRequest) (res dto.
 }
 
 func (s *serviceImpl) RefreshToken(ctx context.Context, req dto.RefreshTokenRequest) (res dto.RefreshTokenResponse, err error) {
-	ctx, scope := s.otel.NewScope(ctx, constant.OtelServiceScopeName, constant.OtelServiceScopeName+".RefreshToken")
+	_, scope := s.otel.NewScope(ctx, constant.OtelServiceScopeName, constant.OtelServiceScopeName+".RefreshToken")
 	defer scope.End()
 	defer scope.TraceIfError(err)
 
@@ -167,7 +168,7 @@ func (s *serviceImpl) ChangePassword(ctx context.Context, req dto.ChangePassword
 	defer scope.End()
 	defer scope.TraceIfError(err)
 
-	username := ctx.Value(constant.ContextGuest).(string)
+	user, _ := ctx.Value(constant.ContextGuest).(string)
 	filter := gDto.FilterGroup{
 		Filters: []any{
 			gDto.Filter{
@@ -179,29 +180,30 @@ func (s *serviceImpl) ChangePassword(ctx context.Context, req dto.ChangePassword
 		},
 	}
 
-	user, err := s.userRepo.Get(ctx, filter)
+	model, err := s.userRepo.Get(ctx, filter)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get user")
 
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	if user.ID == "" {
+	if model.ID == "" {
 		return failure.NotFound("user not found")
 	}
 
-	if err := password.Verify(req.CurrentPassword, user.Password); err != nil {
+	if err := password.Verify(req.CurrentPassword, model.Password); err != nil {
 		return failure.BadRequestFromString("current password is incorrect")
 	}
 
 	hashedPassword, err := password.Hash(req.NewPassword)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to hash new password")
+
 		return fmt.Errorf("failed to hash new password: %w", err)
 	}
 
 	updatePassword := dto.UpdatePasswordRequest{Password: hashedPassword}
-	updatedFields := shared.TransformFields(updatePassword, username)
+	updatedFields := shared.TransformFields(updatePassword, user)
 
 	if err = s.userRepo.Update(ctx, updatedFields, filter); err != nil {
 		log.Error().Err(err).Msg("failed to update password")

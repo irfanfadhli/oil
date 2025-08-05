@@ -13,18 +13,21 @@ const (
 )
 
 var (
-	ErrInvalidPassword = errors.New("invalid password")
+	ErrInvalidPassword   = errors.New("invalid password")
+	ErrEmptyPassword     = errors.New("password cannot be empty")
+	ErrHashingPassword   = errors.New("error hashing password")
+	ErrVerifyingPassword = errors.New("error verifying password")
 )
 
 // Hash generates a bcrypt hash of the password
 func Hash(password string) (string, error) {
 	if password == "" {
-		return "", errors.New("password cannot be empty")
+		return "", ErrEmptyPassword
 	}
 
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), DefaultCost)
 	if err != nil {
-		return "", fmt.Errorf("failed to hash password: %w", err)
+		return "", fmt.Errorf("%w: %w", ErrHashingPassword, err)
 	}
 
 	return string(bytes), nil
@@ -41,7 +44,8 @@ func Verify(password, hash string) error {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return ErrInvalidPassword
 		}
-		return fmt.Errorf("failed to verify password: %w", err)
+
+		return fmt.Errorf("%w: %w", ErrVerifyingPassword, err)
 	}
 
 	return nil

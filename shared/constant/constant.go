@@ -8,11 +8,14 @@ const (
 	ContextGuest = "guest"
 )
 
+// Context key types to avoid collisions
+type contextKey string
+
 const (
-	ContextKeyUserID    = "user_id"
-	ContextKeyUserEmail = "user_email"
-	ContextKeyUserRole  = "user_role"
-	ContextKeyTokenID   = "token_id"
+	ContextKeyUserID    contextKey = "user_id"
+	ContextKeyUserEmail contextKey = "user_email"
+	ContextKeyUserRole  contextKey = "user_role"
+	ContextKeyTokenID   contextKey = "token_id"
 )
 
 const (
@@ -53,6 +56,10 @@ const (
 
 const (
 	DateFormat = time.RFC3339
+)
+
+const (
+	MinutesToSeconds = 60
 )
 
 const (

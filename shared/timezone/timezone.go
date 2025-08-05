@@ -16,6 +16,7 @@ func init() {
 
 	if cfg.App.Timezone == "" {
 		log.Warn().Msg("No timezone configured, using UTC as default")
+
 		cfg.App.Timezone = "UTC"
 	}
 
@@ -25,7 +26,9 @@ func init() {
 			Err(err).
 			Str("timezone", cfg.App.Timezone).
 			Msg("Failed to load timezone, falling back to UTC. Please use standard timezone names like 'Asia/Jakarta', 'UTC', 'America/New_York'")
+
 		appLocation = time.UTC
+
 		return
 	}
 
@@ -40,8 +43,10 @@ func init() {
 func Now() time.Time {
 	if appLocation == nil {
 		log.Warn().Msg("Timezone not initialized, using UTC")
+
 		return time.Now().UTC()
 	}
+
 	return time.Now().In(appLocation)
 }
 
@@ -49,8 +54,10 @@ func Now() time.Time {
 func ToAppTime(t time.Time) time.Time {
 	if appLocation == nil {
 		log.Warn().Msg("Timezone not initialized, using UTC")
+
 		return t.UTC()
 	}
+
 	return t.In(appLocation)
 }
 
@@ -58,8 +65,10 @@ func ToAppTime(t time.Time) time.Time {
 func GetLocation() *time.Location {
 	if appLocation == nil {
 		log.Warn().Msg("Timezone not initialized, returning UTC")
+
 		return time.UTC
 	}
+
 	return appLocation
 }
 
@@ -67,8 +76,10 @@ func GetLocation() *time.Location {
 func Parse(layout, value string) (time.Time, error) {
 	if appLocation == nil {
 		log.Warn().Msg("Timezone not initialized, parsing in UTC")
+
 		return time.Parse(layout, value)
 	}
+
 	return time.ParseInLocation(layout, value, appLocation)
 }
 

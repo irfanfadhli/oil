@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"oil/config"
+	"oil/shared/constant"
 	"oil/shared/timezone"
 	"time"
 
@@ -12,9 +13,13 @@ import (
 )
 
 var (
-	ErrInvalidToken = errors.New("invalid token")
-	ErrExpiredToken = errors.New("token has expired")
-	ErrInvalidClaim = errors.New("invalid token claim")
+	ErrInvalidToken            = errors.New("invalid token")
+	ErrExpiredToken            = errors.New("token has expired")
+	ErrInvalidClaim            = errors.New("invalid token claim")
+	ErrUnknownTokenType        = errors.New("unknown token type")
+	ErrUnexpectedSigningMethod = errors.New("unexpected signing method")
+	ErrAuthHeaderMissing       = errors.New("authorization header is missing")
+	ErrInvalidAuthHeaderFormat = errors.New("invalid authorization header format")
 )
 
 // TokenType represents the type of JWT token
@@ -83,7 +88,7 @@ func (s *Service) GenerateTokenPair(userID, email, role string) (*TokenPair, err
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
-		ExpiresIn:    int64(s.config.JWT.AccessExpireMin * 60),
+		ExpiresIn:    int64(s.config.JWT.AccessExpireMin * constant.MinutesToSeconds),
 	}, nil
 }
 
@@ -112,13 +117,14 @@ func (s *Service) generateToken(userID, email, role string, tokenType TokenType,
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	var secret string
+
 	switch tokenType {
 	case AccessToken:
 		secret = s.config.JWT.AccessSecret
 	case RefreshToken:
 		secret = s.config.JWT.RefreshSecret
 	default:
-		return "", fmt.Errorf("unknown token type: %s", tokenType)
+		return "", fmt.Errorf("%w: %s", ErrUnknownTokenType, tokenType)
 	}
 
 	signedToken, err := token.SignedString([]byte(secret))
@@ -132,19 +138,21 @@ func (s *Service) generateToken(userID, email, role string, tokenType TokenType,
 // ValidateToken validates and parses a JWT token
 func (s *Service) ValidateToken(tokenString string, tokenType TokenType) (*Claims, error) {
 	var secret string
+
 	switch tokenType {
 	case AccessToken:
 		secret = s.config.JWT.AccessSecret
 	case RefreshToken:
 		secret = s.config.JWT.RefreshSecret
 	default:
-		return nil, fmt.Errorf("unknown token type: %s", tokenType)
+		return nil, fmt.Errorf("%w: %s", ErrUnknownTokenType, tokenType)
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("%w: %s", ErrUnexpectedSigningMethod, token.Header["alg"])
 		}
+
 		return []byte(secret), nil
 	})
 
@@ -152,6 +160,7 @@ func (s *Service) ValidateToken(tokenString string, tokenType TokenType) (*Claim
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, ErrExpiredToken
 		}
+
 		return nil, ErrInvalidToken
 	}
 
@@ -182,12 +191,12 @@ func (s *Service) RefreshTokens(refreshToken string) (*TokenPair, error) {
 // ExtractTokenFromHeader extracts JWT token from Authorization header
 func ExtractTokenFromHeader(authHeader string) (string, error) {
 	if authHeader == "" {
-		return "", errors.New("authorization header is required")
+		return "", ErrAuthHeaderMissing
 	}
 
 	const prefix = "Bearer "
 	if len(authHeader) < len(prefix) || authHeader[:len(prefix)] != prefix {
-		return "", errors.New("authorization header must start with 'Bearer '")
+		return "", ErrInvalidAuthHeaderFormat
 	}
 
 	return authHeader[len(prefix):], nil

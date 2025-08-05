@@ -12,8 +12,8 @@ import (
 )
 
 type RegisterRequest struct {
-	Email    string  `json:"email" validate:"required,email"`
-	Password string  `json:"password" validate:"required,min=8"`
+	Email    string  `json:"email"               validate:"required,email"`
+	Password string  `json:"password"            validate:"required,min=8"`
 	FullName *string `json:"full_name,omitempty"`
 }
 
@@ -36,7 +36,7 @@ func (r *RegisterRequest) ToUserModel(username string, hashedPassword string) us
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
+	Email    string `json:"email"    validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
 
@@ -74,7 +74,7 @@ func (r *RefreshTokenResponse) FromTokenPair(tokenPair *jwt.TokenPair) {
 
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required"`
-	NewPassword     string `json:"new_password" validate:"required,min=8"`
+	NewPassword     string `json:"new_password"     validate:"required,min=8"`
 }
 
 type UpdatePasswordRequest struct {

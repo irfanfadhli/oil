@@ -24,6 +24,14 @@ type Config struct {
 	App struct {
 		Name     string `envconfig:"APP_NAME"`
 		Timezone string `envconfig:"TIMEZONE"`
+		CORS     struct {
+			AllowCredentials bool   `envconfig:"ALLOW_CREDENTIALS"`
+			AllowedHeaders   string `envconfig:"ALLOWED_HEADERS"`
+			AllowedMethods   string `envconfig:"ALLOWED_METHODS"`
+			AllowedOrigins   string `envconfig:"ALLOWED_ORIGINS"`
+			Enable           bool   `envconfig:"ENABLE"`
+			MaxAgeSeconds    int    `envconfig:"MAX_AGE_SECONDS"`
+		} `envconfig:"CORS"`
 	} `envconfig:"APP"`
 
 	JWT struct {
