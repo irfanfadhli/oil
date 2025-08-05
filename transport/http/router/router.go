@@ -2,11 +2,13 @@ package router
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"oil/internal/handlers/test"
+	"oil/internal/handlers/auth"
+	"oil/internal/handlers/todo"
 )
 
 type DomainHandlers struct {
-	Test test.Handler
+	Todo todo.Handler
+	Auth auth.Handler
 }
 
 type Router struct {
@@ -15,7 +17,8 @@ type Router struct {
 
 func (r *Router) SetupRoutes(router fiber.Router) {
 	router.Route("/v1", func(routerGroup fiber.Router) {
-		r.DomainHandlers.Test.Router(routerGroup)
+		r.DomainHandlers.Todo.Router(routerGroup)
+		r.DomainHandlers.Auth.Router(routerGroup)
 	})
 }
 

@@ -5,26 +5,66 @@ package di
 
 import (
 	"oil/config"
-	testHandler "oil/internal/handlers/test"
+	"oil/infras/jwt"
+	"oil/infras/otel"
+	"oil/infras/postgres"
+	todoHandler "oil/internal/handlers/todo"
 	"oil/transport/http"
+	"oil/transport/http/middleware"
 	"oil/transport/http/router"
 
 	"github.com/google/wire"
+	todoRepository "oil/internal/domains/todo/repository"
+	todoService "oil/internal/domains/todo/service"
+
+	authService "oil/internal/domains/auth/service"
+	userRepository "oil/internal/domains/user/repository"
+	authHandler "oil/internal/handlers/auth"
 )
 
 var configurations = wire.NewSet(
 	config.Get,
 )
 
+var infrastructures = wire.NewSet(
+	postgres.New,
+	otel.New,
+	jwt.New,
+)
+
+var middlewares = wire.NewSet(
+	middleware.NewAppMiddleware,
+	middleware.NewAuthRoleMiddleware,
+)
+
+var todoDomain = wire.NewSet(
+	todoRepository.New,
+	todoService.New,
+)
+
+var authDomain = wire.NewSet(
+	userRepository.New,
+	authService.New,
+)
+
+var domains = wire.NewSet(
+	todoDomain,
+	authDomain,
+)
+
 var routing = wire.NewSet(
 	wire.Struct(new(router.DomainHandlers), "*"),
-	testHandler.New,
+	todoHandler.New,
+	authHandler.New,
 	router.New,
 )
 
 func InitializeService() *http.HTTP {
 	wire.Build(
 		configurations,
+		infrastructures,
+		middlewares,
+		domains,
 		routing,
 		http.New,
 	)
