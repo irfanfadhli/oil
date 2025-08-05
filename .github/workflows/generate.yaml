@@ -31,18 +31,24 @@ jobs:
         id: create-pr
         with:
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
-          title: "chore: update generated files"
+          title: "chore: update generated files and documentation"
           body: |
-            This PR updates `*gen.go` files from the latest `go generate` output.
+            This PR updates generated files and documentation from the latest `go generate` output.
+            
+            **Changes include:**
+            - `*gen.go` files from code generation
+            - Documentation files in `docs/` folder
+            
             It was created automatically by the GitHub Actions workflow.
             
             **Auto-merge is enabled** - this PR will be automatically merged once all checks pass.
-          commit-message: "chore: auto-generate files"
+          commit-message: "chore: auto-generate files and update docs"
           branch: sync
           base: main
           delete-branch: false
           add-paths: |
             **/*gen.go
+            docs/
 
       - name: Enable auto-merge for PR
         if: steps.create-pr.outputs.pull-request-number
