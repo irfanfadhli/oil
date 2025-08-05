@@ -1,0 +1,34 @@
+package repository
+
+import (
+	"context"
+	"oil/infras/otel"
+	"oil/infras/postgres"
+	"oil/internal/domains/todo/model"
+	gDto "oil/shared/dto"
+	gRepo "oil/shared/repository"
+)
+
+type Todo interface {
+	Insert(ctx context.Context, model model.Todo) error
+	Get(ctx context.Context, filter gDto.FilterGroup, columns ...string) (model.Todo, error)
+	GetAll(ctx context.Context, params gDto.QueryParams, filter gDto.FilterGroup, columns ...string) ([]model.Todo, error)
+	Exist(ctx context.Context, filter gDto.FilterGroup) (bool, error)
+	Count(ctx context.Context, filter gDto.FilterGroup) (int, error)
+	Update(ctx context.Context, req map[string]any, filter gDto.FilterGroup) error
+	Delete(ctx context.Context, filter gDto.FilterGroup) error
+}
+
+type repositoryImpl struct {
+	gRepo.Repository[model.Todo]
+	db   *postgres.Connection
+	otel otel.Otel
+}
+
+func New(db *postgres.Connection, otel otel.Otel) Todo {
+	return &repositoryImpl{
+		Repository: gRepo.NewRepository[model.Todo](model.EntityName, model.TableName, model.FieldID, db, otel),
+		db:         db,
+		otel:       otel,
+	}
+}

@@ -22,11 +22,19 @@ type Connection struct {
 	Write *sqlx.DB
 }
 
-func NewConnection(config *config.Config) *Connection {
+func New(config *config.Config) *Connection {
 	return &Connection{
 		Read:  CreatePostgresReadConn(*config),
 		Write: CreatePostgresWriteConn(*config),
 	}
+}
+
+// getDBName returns the database name with prefix if configured
+func getDBName(config config.Config, baseName string) string {
+	if config.DB.Postgres.Prefix != "" {
+		return config.DB.Postgres.Prefix + baseName
+	}
+	return baseName
 }
 
 // CreatePostgresWriteConn creates a database connection for write access.
@@ -37,7 +45,7 @@ func CreatePostgresWriteConn(config config.Config) *sqlx.DB {
 		config.DB.Postgres.Write.Password,
 		config.DB.Postgres.Write.Host,
 		config.DB.Postgres.Write.Port,
-		config.DB.Postgres.Write.Name,
+		getDBName(config, config.DB.Postgres.Write.Name),
 		config.DB.Postgres.Write.SSLMode,
 		config.DB.Postgres.MaxRetry,
 		config.DB.Postgres.RetryWaitTime,
@@ -52,7 +60,7 @@ func CreatePostgresReadConn(config config.Config) *sqlx.DB {
 		config.DB.Postgres.Read.Password,
 		config.DB.Postgres.Read.Host,
 		config.DB.Postgres.Read.Port,
-		config.DB.Postgres.Read.Name,
+		getDBName(config, config.DB.Postgres.Read.Name),
 		config.DB.Postgres.Read.SSLMode,
 		config.DB.Postgres.MaxRetry,
 		config.DB.Postgres.RetryWaitTime,

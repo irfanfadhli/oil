@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 type Config struct {
@@ -20,12 +21,25 @@ type Config struct {
 		} `envconfig:"SHUTDOWN"`
 	} `envconfig:"SERVER"`
 
+	App struct {
+		Name     string `envconfig:"APP_NAME"`
+		Timezone string `envconfig:"TIMEZONE"`
+	} `envconfig:"APP"`
+
+	JWT struct {
+		AccessSecret     string `envconfig:"ACCESS_SECRET"`
+		RefreshSecret    string `envconfig:"REFRESH_SECRET"`
+		AccessExpireMin  int    `envconfig:"ACCESS_EXPIRE_MIN"`
+		RefreshExpireMin int    `envconfig:"REFRESH_EXPIRE_MIN"`
+	} `envconfig:"JWT"`
+
 	DB struct {
 		Postgres struct {
 			MaxRetry       int    `envconfig:"MAX_RETRY"`
 			RetryWaitTime  int    `envconfig:"RETRY_WAIT_TIME"`
 			MigrationTable string `envconfig:"MIGRATION_TABLE"`
 			AutoMigrate    bool   `envconfig:"AUTO_MIGRATE"`
+			Prefix         string `envconfig:"PREFIX"`
 			Read           struct {
 				Host     string `envconfig:"HOST"`
 				Port     string `envconfig:"PORT"`
@@ -46,6 +60,12 @@ type Config struct {
 			} `envconfig:"WRITE"`
 		} `envconfig:"POSTGRES"`
 	} `envconfig:"DB"`
+
+	External struct {
+		Otel struct {
+			Endpoint string `envconfig:"ENDPOINT"`
+		} `envconfig:"OTEL"`
+	}
 }
 
 var (

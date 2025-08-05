@@ -6,6 +6,9 @@ import (
 	"oil/shared/logger"
 )
 
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	cfg := config.Get()
 
