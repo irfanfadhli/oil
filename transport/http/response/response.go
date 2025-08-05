@@ -52,6 +52,11 @@ func WithError(ctx *fiber.Ctx, err error) error {
 	return response(ctx, code, Error{Error: &errMsg})
 }
 
+// WithRequestLimitExceeded sends a default response for when the request limit is exceeded
+func WithRequestLimitExceeded(ctx *fiber.Ctx) error {
+	return WithMessage(ctx, fiber.StatusTooManyRequests, constant.ResponseErrorRequestLimitExceeded)
+}
+
 // WithPreparingShutdown sends a default response for when the server is preparing to shut down
 func WithPreparingShutdown(ctx *fiber.Ctx) error {
 	return WithMessage(ctx, fiber.StatusServiceUnavailable, constant.ResponseErrorPrepareShutdown)

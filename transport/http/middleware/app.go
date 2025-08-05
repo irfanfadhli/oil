@@ -5,8 +5,11 @@ import (
 	"oil/config"
 	"oil/infras/otel"
 	"oil/shared/constant"
+	"oil/transport/http/response"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 )
 
 const (
@@ -15,6 +18,7 @@ const (
 
 type AppMiddleware interface {
 	Tracing(c *fiber.Ctx) error
+	RateLimit() fiber.Handler
 }
 
 type appMiddleware struct {
@@ -61,4 +65,24 @@ func (a *appMiddleware) Tracing(c *fiber.Ctx) error {
 	}
 
 	return err
+}
+
+func (a *appMiddleware) RateLimit() fiber.Handler {
+	if !a.config.App.RateLimiter.Enable {
+		return func(c *fiber.Ctx) error {
+			return c.Next()
+		}
+	}
+
+	return limiter.New(limiter.Config{
+		Max:        a.config.App.RateLimiter.MaxRequests,
+		Expiration: time.Duration(a.config.App.RateLimiter.WindowSeconds) * time.Second,
+		KeyGenerator: func(c *fiber.Ctx) string {
+			return c.IP()
+		},
+		LimitReached:           response.WithRequestLimitExceeded,
+		SkipFailedRequests:     false,
+		SkipSuccessfulRequests: false,
+		Storage:                nil,
+	})
 }
