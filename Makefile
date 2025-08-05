@@ -31,7 +31,7 @@ run: generate ## Run the application
 .PHONY: run
 
 build: generate ## Build the application
-	go build -ldflags '-s -w' -o ${BINARY} .
+	go build -ldflags '-s -w' -o ${BINARY} ./cmd/app/main.go
 .PHONY: build
 
 clean: ## Clean up the project

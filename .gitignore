@@ -31,3 +31,6 @@ bin/
 *.log/*
 *.log-/*
 *.log-*/
+
+# Ignore build results
+engine
