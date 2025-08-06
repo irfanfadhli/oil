@@ -86,7 +86,8 @@ func (a *appMiddleware) RateLimit() fiber.Handler {
 	windowSecs := a.config.App.RateLimiter.WindowSeconds
 
 	return func(c *fiber.Ctx) error {
-		cacheKey := shared.BuildCacheKey(cacheKeyRateLimit, c.IP())
+		userAgent := a.getUA(c)
+		cacheKey := shared.BuildCacheKey(cacheKeyRateLimit, c.IP(), userAgent)
 
 		var count int
 		err := a.cache.Get(c.UserContext(), cacheKey, &count)
@@ -110,10 +111,19 @@ func (a *appMiddleware) RateLimit() fiber.Handler {
 			return c.Next()
 		}
 
-		c.Set(constant.HeaderRateLimit, strconv.Itoa(maxReqs))
-		c.Set(constant.HeaderRateLimitRemaining, strconv.Itoa(max(0, maxReqs-count)))
-		c.Set(constant.HeaderRateLimitWindow, strconv.Itoa(windowSecs))
+		c.Set(constant.ContextKeyRateLimit, strconv.Itoa(maxReqs))
+		c.Set(constant.ContextKeyRateLimitRemaining, strconv.Itoa(max(0, maxReqs-count)))
+		c.Set(constant.ContextKeyRateLimitWindow, strconv.Itoa(windowSecs))
 
 		return c.Next()
 	}
+}
+
+func (a *appMiddleware) getUA(c *fiber.Ctx) string {
+	ua := c.Get(constant.ContextKeyUserAgent)
+	if ua == "" {
+		ua = "unknown"
+	}
+
+	return ua
 }
