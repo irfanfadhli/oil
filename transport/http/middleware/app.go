@@ -1,15 +1,17 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
 	"oil/config"
 	"oil/infras/otel"
+	"oil/shared"
+	"oil/shared/cache"
 	"oil/shared/constant"
 	"oil/transport/http/response"
-	"time"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
 )
 
 const (
@@ -24,12 +26,14 @@ type AppMiddleware interface {
 type appMiddleware struct {
 	otel   otel.Otel
 	config *config.Config
+	cache  cache.RedisCache
 }
 
-func NewAppMiddleware(otel otel.Otel, config *config.Config) AppMiddleware {
+func NewAppMiddleware(otel otel.Otel, config *config.Config, cache cache.RedisCache) AppMiddleware {
 	return &appMiddleware{
 		otel:   otel,
 		config: config,
+		cache:  cache,
 	}
 }
 
@@ -67,6 +71,10 @@ func (a *appMiddleware) Tracing(c *fiber.Ctx) error {
 	return err
 }
 
+const (
+	cacheKeyRateLimit = "limiter"
+)
+
 func (a *appMiddleware) RateLimit() fiber.Handler {
 	if !a.config.App.RateLimiter.Enable {
 		return func(c *fiber.Ctx) error {
@@ -74,15 +82,38 @@ func (a *appMiddleware) RateLimit() fiber.Handler {
 		}
 	}
 
-	return limiter.New(limiter.Config{
-		Max:        a.config.App.RateLimiter.MaxRequests,
-		Expiration: time.Duration(a.config.App.RateLimiter.WindowSeconds) * time.Second,
-		KeyGenerator: func(c *fiber.Ctx) string {
-			return c.IP()
-		},
-		LimitReached:           response.WithRequestLimitExceeded,
-		SkipFailedRequests:     false,
-		SkipSuccessfulRequests: false,
-		Storage:                nil,
-	})
+	maxReqs := a.config.App.RateLimiter.MaxRequests
+	windowSecs := a.config.App.RateLimiter.WindowSeconds
+
+	return func(c *fiber.Ctx) error {
+		cacheKey := shared.BuildCacheKey(cacheKeyRateLimit, c.IP())
+
+		var count int
+		err := a.cache.Get(c.UserContext(), cacheKey, &count)
+
+		if err != nil {
+			if errors.Is(err, cache.CacheNil) {
+				count = 1
+			} else {
+				return c.Next()
+			}
+		} else {
+			count++
+		}
+
+		if count > maxReqs {
+			return response.WithRequestLimitExceeded(c)
+		}
+
+		err = a.cache.Save(c.UserContext(), cacheKey, count, windowSecs)
+		if err != nil {
+			return c.Next()
+		}
+
+		c.Set(constant.HeaderRateLimit, strconv.Itoa(maxReqs))
+		c.Set(constant.HeaderRateLimitRemaining, strconv.Itoa(max(0, maxReqs-count)))
+		c.Set(constant.HeaderRateLimitWindow, strconv.Itoa(windowSecs))
+
+		return c.Next()
+	}
 }

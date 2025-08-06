@@ -39,6 +39,18 @@ type Config struct {
 		} `envconfig:"RATE_LIMITER"`
 	} `envconfig:"APP"`
 
+	Cache struct {
+		Redis struct {
+			Primary struct {
+				Host     string `envconfig:"HOST"`
+				Port     string `envconfig:"PORT"`
+				Password string `envconfig:"PASSWORD"`
+				DB       int    `envconfig:"DB"`
+			} `envconfig:"PRIMARY"`
+		} `envconfig:"REDIS"`
+		TTL int `envconfig:"TTL"`
+	} `envconfig:"CACHE"`
+
 	JWT struct {
 		AccessSecret     string `envconfig:"ACCESS_SECRET"`
 		RefreshSecret    string `envconfig:"REFRESH_SECRET"`

@@ -74,6 +74,12 @@ const (
 )
 
 const (
+	HeaderRateLimit          = "X-RateLimit-Limit"
+	HeaderRateLimitRemaining = "X-RateLimit-Remaining"
+	HeaderRateLimitWindow    = "X-RateLimit-Window"
+)
+
+const (
 	ResponseErrorPrepareShutdown      = "SERVER PREPARING TO SHUT DOWN"
 	ResponseErrorUnhealthy            = "SERVER UNHEALTHY"
 	ResponseErrorRequestLimitExceeded = "REQUEST LIMIT EXCEEDED"
