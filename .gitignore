@@ -9,7 +9,7 @@
 
 # Ignore mock files
 **/mock.go
-**/mock
+**/mock*
 
 # Disable Ignore generated files
 #**gen.go

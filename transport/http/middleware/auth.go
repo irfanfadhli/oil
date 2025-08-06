@@ -50,7 +50,7 @@ func NewAuthRoleMiddleware(jwtService jwt.JWT, otel otel.Otel) AuthRole {
 // Requires valid authentication for all requests
 func (m *authRoleImpl) Auth() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		_, scope := m.otel.NewScope(c.Context(), constant.OtelHandlerScopeName, "auth.middleware")
+		ctx, scope := m.otel.NewScope(c.Context(), constant.OtelHandlerScopeName, "auth.middleware")
 		defer scope.End()
 
 		scope.SetAttributes(map[string]any{
@@ -91,7 +91,7 @@ func (m *authRoleImpl) Auth() fiber.Handler {
 			return response.WithError(c, failure.Unauthorized("Invalid authorization header format"))
 		}
 
-		claims, err := m.jwtService.ValidateToken(tokenString, jwt.AccessToken)
+		claims, err := m.jwtService.ValidateToken(ctx, tokenString, jwt.AccessToken)
 		if err != nil {
 			scope.SetAttributes(map[string]any{
 				"auth.result": "failed",
@@ -135,7 +135,7 @@ func (m *authRoleImpl) Auth() fiber.Handler {
 		}
 
 		// Store user information in Go context
-		ctx := c.UserContext()
+		ctx = c.UserContext()
 		ctx = context.WithValue(ctx, constant.ContextKeyUserID, claims.UserID)
 		ctx = context.WithValue(ctx, constant.ContextKeyUserEmail, claims.Email)
 		ctx = context.WithValue(ctx, constant.ContextKeyUserRole, claims.Role)
