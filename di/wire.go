@@ -15,9 +15,10 @@ import (
 	"oil/transport/http/middleware"
 	"oil/transport/http/router"
 
-	"github.com/google/wire"
 	todoRepository "oil/internal/domains/todo/repository"
 	todoService "oil/internal/domains/todo/service"
+
+	"github.com/google/wire"
 
 	authService "oil/internal/domains/auth/service"
 	userRepository "oil/internal/domains/user/repository"
@@ -31,8 +32,8 @@ var configurations = wire.NewSet(
 var infrastructures = wire.NewSet(
 	postgres.New,
 	otel.New,
-	jwt.New,
 	redis.New,
+	jwt.New,
 )
 
 var middlewares = wire.NewSet(

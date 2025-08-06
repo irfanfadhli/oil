@@ -1,5 +1,7 @@
 package cache
 
+//go:generate go run go.uber.org/mock/mockgen -source=./cache.go -destination=./mocks/cache_mock.go -package=mocks
+
 import (
 	"context"
 	"encoding/json"

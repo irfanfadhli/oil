@@ -1,9 +1,12 @@
 package jwt
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"oil/config"
+	"oil/shared"
+	"oil/shared/cache"
 	"oil/shared/constant"
 	"oil/shared/timezone"
 	"time"
@@ -20,17 +23,22 @@ var (
 	ErrUnexpectedSigningMethod = errors.New("unexpected signing method")
 	ErrAuthHeaderMissing       = errors.New("authorization header is missing")
 	ErrInvalidAuthHeaderFormat = errors.New("invalid authorization header format")
+	ErrTokenParsingFailed      = errors.New("failed to parse token")
+	ErrTokenSigningFailed      = errors.New("failed to sign token")
+	ErrTokenGenerationFailed   = errors.New("failed to generate token")
+	ErrCacheOperationFailed    = errors.New("cache operation failed")
 )
 
-// TokenType represents the type of JWT token
 type TokenType string
 
 const (
-	AccessToken  TokenType = "access"
-	RefreshToken TokenType = "refresh"
+	AccessToken             TokenType = "access"
+	RefreshToken            TokenType = "refresh"
+	cacheJwtUserPrefix      string    = "jwt:user"
+	cacheJwtBlacklistPrefix string    = "jwt:blacklist"
+	cacheJwtRevokedValue    string    = "revoked"
 )
 
-// Claims represents the JWT claims structure
 type Claims struct {
 	UserID   string    `json:"user_id"`
 	Email    string    `json:"email"`
@@ -41,59 +49,66 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// TokenPair represents access and refresh token pair
 type TokenPair struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int64  `json:"expires_in"`
 }
 
-// JWT handles JWT operations
 type JWT interface {
-	GenerateTokenPair(userID, email, role string) (*TokenPair, error)
-	ValidateToken(tokenString string, tokenType TokenType) (*Claims, error)
-	RefreshTokens(refreshToken string) (*TokenPair, error)
+	GenerateTokenPair(ctx context.Context, userID, email, role string) (*TokenPair, error)
+	ValidateToken(ctx context.Context, tokenString string, tokenType TokenType) (*Claims, error)
+	RefreshTokens(ctx context.Context, refreshToken string) (*TokenPair, error)
+	RevokeToken(ctx context.Context, tokenString string, tokenType TokenType) error
+	RevokeAllUserTokens(ctx context.Context, userID string) error
+	IsTokenRevoked(ctx context.Context, tokenID string) (bool, error)
 }
 
-// Service handles JWT operations
 type Service struct {
 	config *config.Config
+	cache  cache.RedisCache
 }
 
-// New creates a new JWT service
-func New(cfg *config.Config) JWT {
+// New creates a new JWT service with Redis integration
+func New(cfg *config.Config, redisCache cache.RedisCache) JWT {
 	return &Service{
 		config: cfg,
+		cache:  redisCache,
 	}
 }
 
-// GenerateTokenPair generates both access and refresh tokens
-func (s *Service) GenerateTokenPair(userID, email, role string) (*TokenPair, error) {
+// GenerateTokenPair generates both access and refresh tokens with Redis tracking
+func (s *Service) GenerateTokenPair(ctx context.Context, userID, email, role string) (*TokenPair, error) {
 	now := timezone.Now()
 
 	// Generate access token
-	accessToken, err := s.generateToken(userID, email, role, AccessToken, now, s.config.JWT.AccessExpireMin)
+	accessToken, accessTokenID, err := s.generateToken(userID, email, role, AccessToken, now, s.config.JWT.AccessExpireMin)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate access token: %w", err)
+		return nil, ErrTokenGenerationFailed
 	}
 
 	// Generate refresh token
-	refreshToken, err := s.generateToken(userID, email, role, RefreshToken, now, s.config.JWT.RefreshExpireMin)
+	refreshToken, refreshTokenID, err := s.generateToken(userID, email, role, RefreshToken, now, s.config.JWT.RefreshExpireMin)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+		return nil, ErrTokenGenerationFailed
+	}
+
+	// Store token metadata in Redis
+	if err := s.storeTokenMetadata(ctx, userID, accessTokenID, AccessToken, s.config.JWT.AccessExpireMin*constant.MinutesToSeconds); err != nil {
+		return nil, ErrCacheOperationFailed
+	}
+
+	if err := s.storeTokenMetadata(ctx, userID, refreshTokenID, RefreshToken, s.config.JWT.RefreshExpireMin*constant.MinutesToSeconds); err != nil {
+		return nil, ErrCacheOperationFailed
 	}
 
 	return &TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		TokenType:    "Bearer",
-		ExpiresIn:    int64(s.config.JWT.AccessExpireMin * constant.MinutesToSeconds),
 	}, nil
 }
 
 // generateToken creates a JWT token with the specified parameters
-func (s *Service) generateToken(userID, email, role string, tokenType TokenType, issuedAt time.Time, expireMin int) (string, error) {
+func (s *Service) generateToken(userID, email, role string, tokenType TokenType, issuedAt time.Time, expireMin int) (string, string, error) {
 	expiresAt := issuedAt.Add(time.Duration(expireMin) * time.Minute)
 	tokenID := uuid.New().String()
 
@@ -124,19 +139,19 @@ func (s *Service) generateToken(userID, email, role string, tokenType TokenType,
 	case RefreshToken:
 		secret = s.config.JWT.RefreshSecret
 	default:
-		return "", fmt.Errorf("%w: %s", ErrUnknownTokenType, tokenType)
+		return "", "", ErrUnknownTokenType
 	}
 
 	signedToken, err := token.SignedString([]byte(secret))
 	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %w", err)
+		return "", "", ErrTokenSigningFailed
 	}
 
-	return signedToken, nil
+	return signedToken, tokenID, nil
 }
 
-// ValidateToken validates and parses a JWT token
-func (s *Service) ValidateToken(tokenString string, tokenType TokenType) (*Claims, error) {
+// ValidateToken validates and parses a JWT token with Redis blacklist check
+func (s *Service) ValidateToken(ctx context.Context, tokenString string, tokenType TokenType) (*Claims, error) {
 	var secret string
 
 	switch tokenType {
@@ -145,12 +160,12 @@ func (s *Service) ValidateToken(tokenString string, tokenType TokenType) (*Claim
 	case RefreshToken:
 		secret = s.config.JWT.RefreshSecret
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrUnknownTokenType, tokenType)
+		return nil, ErrUnknownTokenType
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("%w: %s", ErrUnexpectedSigningMethod, token.Header["alg"])
+			return nil, ErrUnexpectedSigningMethod
 		}
 
 		return []byte(secret), nil
@@ -174,18 +189,33 @@ func (s *Service) ValidateToken(tokenString string, tokenType TokenType) (*Claim
 		return nil, ErrInvalidClaim
 	}
 
+	// Check if token is revoked in Redis
+	revoked, err := s.IsTokenRevoked(ctx, claims.TokenID)
+	if err != nil {
+		return nil, ErrCacheOperationFailed
+	}
+
+	if revoked {
+		return nil, ErrInvalidToken
+	}
+
 	return claims, nil
 }
 
 // RefreshTokens generates new token pair using refresh token
-func (s *Service) RefreshTokens(refreshToken string) (*TokenPair, error) {
-	claims, err := s.ValidateToken(refreshToken, RefreshToken)
+func (s *Service) RefreshTokens(ctx context.Context, refreshToken string) (*TokenPair, error) {
+	claims, err := s.ValidateToken(ctx, refreshToken, RefreshToken)
 	if err != nil {
-		return nil, fmt.Errorf("invalid refresh token: %w", err)
+		return nil, err
+	}
+
+	// Revoke the old refresh token
+	if err := s.RevokeToken(ctx, refreshToken, RefreshToken); err != nil {
+		return nil, ErrCacheOperationFailed
 	}
 
 	// Generate new token pair
-	return s.GenerateTokenPair(claims.UserID, claims.Email, claims.Role)
+	return s.GenerateTokenPair(ctx, claims.UserID, claims.Email, claims.Role)
 }
 
 // ExtractTokenFromHeader extracts JWT token from Authorization header
@@ -200,4 +230,78 @@ func ExtractTokenFromHeader(authHeader string) (string, error) {
 	}
 
 	return authHeader[len(prefix):], nil
+}
+
+// storeTokenMetadata stores token metadata in Redis
+func (s *Service) storeTokenMetadata(ctx context.Context, userID, tokenID string, tokenType TokenType, expireSeconds int) error {
+	// Store in user's token list using BuildCacheKey
+	cacheKey := shared.BuildCacheKey(cacheJwtUserPrefix, userID, tokenID)
+	tokenData := fmt.Sprintf("%s:%s", tokenID, tokenType)
+
+	if err := s.cache.Save(ctx, cacheKey, tokenData, expireSeconds); err != nil {
+		return ErrCacheOperationFailed
+	}
+
+	return nil
+}
+
+// RevokeToken revokes a specific token by adding it to blacklist
+func (s *Service) RevokeToken(ctx context.Context, tokenString string, _ TokenType) error {
+	// Parse token to get claims without validation
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, &Claims{})
+	if err != nil {
+		return ErrTokenParsingFailed
+	}
+
+	claims, ok := token.Claims.(*Claims)
+	if !ok {
+		return ErrInvalidToken
+	}
+
+	// Add to blacklist with TTL equal to remaining token lifetime using BuildCacheKey
+	blacklistKey := shared.BuildCacheKey(cacheJwtBlacklistPrefix, claims.TokenID)
+	remaining := time.Until(claims.ExpiresAt.Time)
+
+	if remaining > 0 {
+		if err := s.cache.Save(ctx, blacklistKey, cacheJwtRevokedValue, int(remaining.Seconds())); err != nil {
+			return ErrCacheOperationFailed
+		}
+	}
+
+	// Remove from user's active tokens using BuildCacheKey
+	userTokenKey := shared.BuildCacheKey(cacheJwtUserPrefix, claims.UserID, claims.TokenID)
+	if err := s.cache.Delete(ctx, userTokenKey); err != nil {
+		return ErrCacheOperationFailed
+	}
+
+	return nil
+}
+
+// RevokeAllUserTokens revokes all tokens for a specific user
+func (s *Service) RevokeAllUserTokens(ctx context.Context, userID string) error {
+	// Clear all user tokens using BuildCacheKey pattern
+	userTokensPattern := shared.BuildCacheKey(cacheJwtUserPrefix, userID, "*")
+	if err := s.cache.Clear(ctx, userTokensPattern); err != nil {
+		return ErrCacheOperationFailed
+	}
+
+	return nil
+}
+
+// IsTokenRevoked checks if a token is in the blacklist
+func (s *Service) IsTokenRevoked(ctx context.Context, tokenID string) (bool, error) {
+	blacklistKey := shared.BuildCacheKey(cacheJwtBlacklistPrefix, tokenID)
+
+	var result string
+
+	err := s.cache.Get(ctx, blacklistKey, &result)
+	if err != nil {
+		if errors.Is(err, cache.CacheNil) {
+			return false, nil
+		}
+
+		return false, ErrCacheOperationFailed
+	}
+
+	return true, nil
 }

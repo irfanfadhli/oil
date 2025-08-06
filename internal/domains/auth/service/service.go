@@ -121,7 +121,7 @@ func (s *serviceImpl) Login(ctx context.Context, req dto.LoginRequest) (res dto.
 		return res, failure.BadRequestFromString("user account is deactivated")
 	}
 
-	tokenPair, err := s.jwtService.GenerateTokenPair(user.ID, user.Email, user.Level)
+	tokenPair, err := s.jwtService.GenerateTokenPair(ctx, user.ID, user.Email, user.Level)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to generate tokens")
 
@@ -151,7 +151,7 @@ func (s *serviceImpl) RefreshToken(ctx context.Context, req dto.RefreshTokenRequ
 	defer scope.End()
 	defer scope.TraceIfError(err)
 
-	tokenPair, err := s.jwtService.RefreshTokens(req.RefreshToken)
+	tokenPair, err := s.jwtService.RefreshTokens(ctx, req.RefreshToken)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to refresh tokens")
 

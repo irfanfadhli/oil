@@ -47,13 +47,11 @@ type UpdateLastLoginRequest struct {
 type LoginResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int64  `json:"expires_in"`
 }
 
 func (l *LoginResponse) FromTokenPair(tokenPair *jwt.TokenPair) {
 	l.AccessToken = tokenPair.AccessToken
 	l.RefreshToken = tokenPair.RefreshToken
-	l.ExpiresIn = tokenPair.ExpiresIn
 }
 
 type RefreshTokenRequest struct {
@@ -63,13 +61,11 @@ type RefreshTokenRequest struct {
 type RefreshTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int64  `json:"expires_in"`
 }
 
 func (r *RefreshTokenResponse) FromTokenPair(tokenPair *jwt.TokenPair) {
 	r.AccessToken = tokenPair.AccessToken
 	r.RefreshToken = tokenPair.RefreshToken
-	r.ExpiresIn = tokenPair.ExpiresIn
 }
 
 type ChangePasswordRequest struct {
