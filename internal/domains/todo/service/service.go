@@ -9,11 +9,16 @@ import (
 	"oil/internal/domains/todo/model/dto"
 	"oil/internal/domains/todo/repository"
 	"oil/shared"
+	"oil/shared/cache"
 	"oil/shared/constant"
 	gDto "oil/shared/dto"
 	"oil/shared/failure"
 
 	"github.com/rs/zerolog/log"
+)
+
+const (
+	cacheGetTodo = "todo"
 )
 
 type Todo interface {
@@ -25,16 +30,18 @@ type Todo interface {
 }
 
 type serviceImpl struct {
-	repo repository.Todo
-	cfg  *config.Config
-	otel otel.Otel
+	repo  repository.Todo
+	cfg   *config.Config
+	cache cache.RedisCache
+	otel  otel.Otel
 }
 
-func New(repo repository.Todo, cfg *config.Config, otel otel.Otel) Todo {
+func New(repo repository.Todo, cfg *config.Config, cache cache.RedisCache, otel otel.Otel) Todo {
 	return &serviceImpl{
-		repo: repo,
-		cfg:  cfg,
-		otel: otel,
+		repo:  repo,
+		cfg:   cfg,
+		cache: cache,
+		otel:  otel,
 	}
 }
 
@@ -83,6 +90,15 @@ func (s *serviceImpl) Get(ctx context.Context, id string) (res dto.TodoResponse,
 	defer scope.End()
 	defer scope.TraceIfError(nil)
 
+	cacheKey := shared.BuildCacheKey(cacheGetTodo, id)
+
+	err = s.cache.Get(ctx, cacheKey, &res)
+	if err == nil {
+		log.Info().Str("cacheKey", cacheKey).Msg("cache hit for todo")
+
+		return res, nil
+	}
+
 	todo, err := s.repo.Get(ctx, shared.FilterByID(id, model.FieldID, model.TableName))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get todo")
@@ -95,6 +111,14 @@ func (s *serviceImpl) Get(ctx context.Context, id string) (res dto.TodoResponse,
 	}
 
 	res.FromModel(todo)
+
+	go func() {
+		c := context.WithoutCancel(ctx)
+
+		if err := s.cache.Save(c, cacheKey, res, s.cfg.Cache.TTL); err != nil {
+			log.Error().Err(err).Msg("failed to save todo to cache")
+		}
+	}()
 
 	return res, nil
 }
@@ -131,6 +155,14 @@ func (s *serviceImpl) Update(ctx context.Context, req dto.UpdateTodoRequest, id 
 		return fmt.Errorf("failed to update todo: %w", err)
 	}
 
+	go func() {
+		c := context.WithoutCancel(ctx)
+
+		if err := s.cache.Delete(c, shared.BuildCacheKey(cacheGetTodo, id)); err != nil {
+			log.Error().Err(err).Msg("failed to delete todo from cache")
+		}
+	}()
+
 	return nil
 }
 
@@ -157,6 +189,14 @@ func (s *serviceImpl) Delete(ctx context.Context, id string) error {
 
 		return fmt.Errorf("failed to delete todo: %w", err)
 	}
+
+	go func() {
+		c := context.WithoutCancel(ctx)
+
+		if err := s.cache.Delete(c, shared.BuildCacheKey(cacheGetTodo, id)); err != nil {
+			log.Error().Err(err).Msg("failed to delete todo from cache")
+		}
+	}()
 
 	return nil
 }
