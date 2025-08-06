@@ -1,5 +1,7 @@
 package jwt
 
+//go:generate go run go.uber.org/mock/mockgen -source=./jwt.go -destination=./mocks/jwt_mock.go -package=mocks
+
 import (
 	"context"
 	"errors"
