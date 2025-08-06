@@ -1,13 +1,16 @@
 package shared
 
 import (
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"math"
+	"oil/config"
 	"oil/shared/constant"
 	"oil/shared/dto"
 	"oil/shared/timezone"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 func ConvertStringToBool(value string) *bool {
@@ -73,4 +76,17 @@ func FilterByID(id, fieldID, table string) dto.FilterGroup {
 			},
 		},
 	}
+}
+
+func BuildCacheKey(key string, postfix ...string) string {
+	cfg := config.Get()
+	parent := cfg.App.Name
+
+	if len(postfix) > 0 {
+		suffix := strings.Join(postfix, ":")
+
+		return fmt.Sprintf("%s:cache:%s:%s", parent, key, suffix)
+	}
+
+	return fmt.Sprintf("%s:cache:%s", parent, key)
 }

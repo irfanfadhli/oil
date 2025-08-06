@@ -152,7 +152,8 @@ func (h *HTTP) setupRateLimit() {
 			Bool("enabled", rateLimitConfig.Enable).
 			Int("max_requests", rateLimitConfig.MaxRequests).
 			Int("window_seconds", rateLimitConfig.WindowSeconds).
-			Msg("Rate limiting enabled")
+			Str("storage", "cache-redis").
+			Msg("Rate limiting enabled with Redis cache storage")
 		h.fiber.Use(rateLimitHandler)
 	} else {
 		log.Info().Msg("Rate limiting disabled")

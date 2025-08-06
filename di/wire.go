@@ -8,7 +8,9 @@ import (
 	"oil/infras/jwt"
 	"oil/infras/otel"
 	"oil/infras/postgres"
+	"oil/infras/redis"
 	todoHandler "oil/internal/handlers/todo"
+	"oil/shared/cache"
 	"oil/transport/http"
 	"oil/transport/http/middleware"
 	"oil/transport/http/router"
@@ -30,11 +32,16 @@ var infrastructures = wire.NewSet(
 	postgres.New,
 	otel.New,
 	jwt.New,
+	redis.New,
 )
 
 var middlewares = wire.NewSet(
 	middleware.NewAppMiddleware,
 	middleware.NewAuthRoleMiddleware,
+)
+
+var sharedHelpers = wire.NewSet(
+	cache.NewRedisCache,
 )
 
 var todoDomain = wire.NewSet(
@@ -64,6 +71,7 @@ func InitializeService() *http.HTTP {
 		configurations,
 		infrastructures,
 		middlewares,
+		sharedHelpers,
 		domains,
 		routing,
 		http.New,

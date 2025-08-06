@@ -25,10 +25,6 @@ const (
 )
 
 const (
-	ContextKeyUserAgent = "User-Agent"
-)
-
-const (
 	RequestParamPage    = "page"
 	RequestParamLimit   = "limit"
 	RequestParamSortBy  = "sort_by"
@@ -71,6 +67,13 @@ const (
 
 	OtelQueryAttributeKey = "query"
 	OtelMinioScopeName    = "minio"
+)
+
+const (
+	ContextKeyRateLimit          = "X-RateLimit-Limit"
+	ContextKeyRateLimitRemaining = "X-RateLimit-Remaining"
+	ContextKeyRateLimitWindow    = "X-RateLimit-Window"
+	ContextKeyUserAgent          = "User-Agent"
 )
 
 const (
