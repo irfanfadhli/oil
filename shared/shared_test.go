@@ -1,12 +1,17 @@
 package shared_test
 
 import (
+	"context"
 	"oil/shared"
+	"oil/shared/cache/mocks"
 	"oil/shared/constant"
 	"oil/shared/dto"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"go.uber.org/mock/gomock"
 )
 
 func TestConvertStringToBool(t *testing.T) {
@@ -412,4 +417,290 @@ func intPtr(i int) *int {
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+func TestBuildCacheKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		key      string
+		postfix  []string
+		expected string
+	}{
+		{
+			name:     "key without postfix",
+			key:      "users",
+			postfix:  nil,
+			expected: "oil:cache:users", // Assuming default app name from config is "oil"
+		},
+		{
+			name:     "key with single postfix",
+			key:      "users",
+			postfix:  []string{"123"},
+			expected: "oil:cache:users:123",
+		},
+		{
+			name:     "key with multiple postfix",
+			key:      "todos",
+			postfix:  []string{"user", "123", "active"},
+			expected: "oil:cache:todos:user:123:active",
+		},
+		{
+			name:     "empty key",
+			key:      "",
+			postfix:  []string{"test"},
+			expected: "oil:cache::test",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := shared.BuildCacheKey(tt.key, tt.postfix...)
+
+			// The actual app name from config might be different, so let's check the structure
+			if !strings.Contains(result, ":cache:"+tt.key) {
+				t.Errorf("expected cache key to contain ':cache:%s', got %s", tt.key, result)
+			}
+
+			if len(tt.postfix) > 0 {
+				suffix := strings.Join(tt.postfix, ":")
+				if !strings.HasSuffix(result, ":"+suffix) {
+					t.Errorf("expected cache key to end with ':%s', got %s", suffix, result)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildCacheKeyWithQuery(t *testing.T) {
+	tests := []struct {
+		name        string
+		key         string
+		queryParams dto.QueryParams
+		filter      dto.FilterGroup
+	}{
+		{
+			name: "basic query params",
+			key:  "users",
+			queryParams: dto.QueryParams{
+				Page:    1,
+				Limit:   10,
+				SortBy:  "created_at",
+				SortDir: "DESC",
+			},
+			filter: dto.FilterGroup{},
+		},
+		{
+			name: "query params with filter",
+			key:  "todos",
+			queryParams: dto.QueryParams{
+				Page:    2,
+				Limit:   25,
+				SortBy:  "title",
+				SortDir: "ASC",
+			},
+			filter: dto.FilterGroup{
+				Filters: []any{
+					dto.Filter{
+						Field:    "status",
+						Value:    "active",
+						Operator: dto.FilterOperatorEq,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := shared.BuildCacheKeyWithQuery(tt.key, tt.queryParams, tt.filter)
+
+			// Check that the result contains the expected parts
+			if !strings.Contains(result, ":cache:"+tt.key+":") {
+				t.Errorf("expected cache key to contain ':cache:%s:', got %s", tt.key, result)
+			}
+
+			// The result should have the structure: appname:cache:key:hash
+			parts := strings.Split(result, ":")
+			if len(parts) != 4 {
+				t.Errorf("expected 4 parts in cache key, got %d: %s", len(parts), result)
+			}
+		})
+	}
+}
+
+func TestInvalidateCaches(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCache := mocks.NewMockRedisCache(ctrl)
+
+	tests := []struct {
+		name      string
+		key       string
+		setupMock func()
+	}{
+		{
+			name: "successful cache clear",
+			key:  "users",
+			setupMock: func() {
+				mockCache.EXPECT().
+					Clear(gomock.Any(), gomock.Any()).
+					Return(nil)
+			},
+		},
+		{
+			name: "cache clear with error",
+			key:  "todos",
+			setupMock: func() {
+				mockCache.EXPECT().
+					Clear(gomock.Any(), gomock.Any()).
+					Return(context.DeadlineExceeded)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMock()
+
+			ctx := context.Background()
+
+			// This function should not panic even if cache.Clear returns an error
+			shared.InvalidateCaches(ctx, mockCache, tt.key)
+		})
+	}
+}
+
+func TestGenerateQueryHashIndirectly(t *testing.T) {
+	// Since generateQueryHash is not exported, we test it indirectly through BuildCacheKeyWithQuery
+	tests := []struct {
+		name          string
+		queryParams1  dto.QueryParams
+		filter1       dto.FilterGroup
+		queryParams2  dto.QueryParams
+		filter2       dto.FilterGroup
+		shouldBeEqual bool
+	}{
+		{
+			name: "identical query params should generate same hash",
+			queryParams1: dto.QueryParams{
+				Page:    1,
+				Limit:   10,
+				SortBy:  "created_at",
+				SortDir: "DESC",
+			},
+			filter1: dto.FilterGroup{},
+			queryParams2: dto.QueryParams{
+				Page:    1,
+				Limit:   10,
+				SortBy:  "created_at",
+				SortDir: "DESC",
+			},
+			filter2:       dto.FilterGroup{},
+			shouldBeEqual: true,
+		},
+		{
+			name: "different query params should generate different hash",
+			queryParams1: dto.QueryParams{
+				Page:    1,
+				Limit:   10,
+				SortBy:  "created_at",
+				SortDir: "DESC",
+			},
+			filter1: dto.FilterGroup{},
+			queryParams2: dto.QueryParams{
+				Page:    2,
+				Limit:   10,
+				SortBy:  "created_at",
+				SortDir: "DESC",
+			},
+			filter2:       dto.FilterGroup{},
+			shouldBeEqual: false,
+		},
+		{
+			name: "different filters should generate different hash",
+			queryParams1: dto.QueryParams{
+				Page:    1,
+				Limit:   10,
+				SortBy:  "created_at",
+				SortDir: "DESC",
+			},
+			filter1: dto.FilterGroup{
+				Filters: []any{
+					dto.Filter{Field: "status", Value: "active", Operator: dto.FilterOperatorEq},
+				},
+			},
+			queryParams2: dto.QueryParams{
+				Page:    1,
+				Limit:   10,
+				SortBy:  "created_at",
+				SortDir: "DESC",
+			},
+			filter2: dto.FilterGroup{
+				Filters: []any{
+					dto.Filter{Field: "status", Value: "inactive", Operator: dto.FilterOperatorEq},
+				},
+			},
+			shouldBeEqual: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key1 := shared.BuildCacheKeyWithQuery("test", tt.queryParams1, tt.filter1)
+			key2 := shared.BuildCacheKeyWithQuery("test", tt.queryParams2, tt.filter2)
+
+			if tt.shouldBeEqual {
+				if key1 != key2 {
+					t.Errorf("expected cache keys to be equal, got %s and %s", key1, key2)
+				}
+			} else {
+				if key1 == key2 {
+					t.Errorf("expected cache keys to be different, but both are %s", key1)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateQueryHashWithUnmarshalableData(t *testing.T) {
+	// Test the error path in generateQueryHash by using data that can't be marshaled
+	// We can create this by using a filter with a function value (functions can't be marshaled to JSON)
+
+	queryParams := dto.QueryParams{
+		Page:    1,
+		Limit:   10,
+		SortBy:  "created_at",
+		SortDir: "DESC",
+	}
+
+	// Create a filter with unmarshallable data (like a channel or function)
+	filter := dto.FilterGroup{
+		Filters: []any{
+			dto.Filter{
+				Field:    "test",
+				Value:    make(chan int), // channels can't be marshaled to JSON
+				Operator: dto.FilterOperatorEq,
+			},
+		},
+	}
+
+	// This should still work and fall back to the simple format
+	result := shared.BuildCacheKeyWithQuery("test", queryParams, filter)
+
+	// The result should contain the fallback format pattern
+	if !strings.Contains(result, ":cache:test:") {
+		t.Errorf("expected cache key to contain ':cache:test:', got %s", result)
+	}
+
+	// The hash part should be the fallback format: page_1_limit_10_sortBy_created_at_sortDir_DESC
+	parts := strings.Split(result, ":")
+	if len(parts) != 4 {
+		t.Errorf("expected 4 parts in cache key, got %d: %s", len(parts), result)
+	}
+
+	expectedHashPart := "page_1_limit_10_sortBy_created_at_sortDir_DESC"
+	if parts[3] != expectedHashPart {
+		t.Errorf("expected hash part to be %s, got %s", expectedHashPart, parts[3])
+	}
 }
