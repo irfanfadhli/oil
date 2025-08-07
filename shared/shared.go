@@ -3,6 +3,7 @@ package shared
 import (
 	"context"
 	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
