@@ -36,14 +36,14 @@ type Repository[T any] struct {
 	db            *postgres.Connection
 	otel          otel.Otel
 	table         string
-	entitas       string
+	entity        string
 	primaryColumn string
 	columns       []column
 	join          string
 	InsertColumns []string
 }
 
-func NewRepository[T any](entitasName, tableName, primaryColumn string, dbConnection *postgres.Connection, otl otel.Otel) Repository[T] {
+func NewRepository[T any](entityName, tableName, primaryColumn string, dbConnection *postgres.Connection, otl otel.Otel) Repository[T] {
 	var zero T
 
 	reflectType := reflect.TypeOf(zero)
@@ -65,7 +65,7 @@ func NewRepository[T any](entitasName, tableName, primaryColumn string, dbConnec
 		db:            dbConnection,
 		otel:          otl,
 		table:         tableName,
-		entitas:       entitasName,
+		entity:        entityName,
 		primaryColumn: primaryColumn,
 		columns:       columns,
 		join:          joinQueryStr,
@@ -74,7 +74,7 @@ func NewRepository[T any](entitasName, tableName, primaryColumn string, dbConnec
 }
 
 func (repo *Repository[T]) insert(ctx context.Context, exec execer, model T) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.insert", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.insert", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	placeholders := []string{}
@@ -91,28 +91,28 @@ func (repo *Repository[T]) insert(ctx context.Context, exec execer, model T) err
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return fmt.Errorf("failed to insert data (%s): %w", repo.entitas, err)
+		return fmt.Errorf("failed to insert data (%s): %w", repo.entity, err)
 	}
 
 	return nil
 }
 
 func (repo *Repository[T]) Insert(ctx context.Context, model T) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Insert", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Insert", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	return repo.insert(ctx, repo.db.Write, model) //nolint:wrapcheck
 }
 
 func (repo *Repository[T]) InsertTx(ctx context.Context, sqltx *sqlx.Tx, model T) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.InsertTx", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.InsertTx", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	return repo.insert(ctx, sqltx, model) //nolint:wrapcheck
 }
 
 func (repo *Repository[T]) Exist(ctx context.Context, filter dto.FilterGroup) (bool, error) {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Exist", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Exist", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	where, args := repo.BuildWhereClause(ctx, filter)
@@ -130,7 +130,7 @@ func (repo *Repository[T]) Exist(ctx context.Context, filter dto.FilterGroup) (b
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return false, fmt.Errorf("failed to check exist data (%s): %w", repo.entitas, err)
+		return false, fmt.Errorf("failed to check exist data (%s): %w", repo.entity, err)
 	}
 	defer prepare.Close()
 
@@ -140,14 +140,14 @@ func (repo *Repository[T]) Exist(ctx context.Context, filter dto.FilterGroup) (b
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return false, fmt.Errorf("failed to check exist data (%s): %w", repo.entitas, err)
+		return false, fmt.Errorf("failed to check exist data (%s): %w", repo.entity, err)
 	}
 
 	return exist, nil
 }
 
 func (repo *Repository[T]) Get(ctx context.Context, filter dto.FilterGroup, columns ...string) (T, error) {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Get", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Get", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	where, args := repo.BuildWhereClause(ctx, filter)
@@ -163,7 +163,7 @@ func (repo *Repository[T]) Get(ctx context.Context, filter dto.FilterGroup, colu
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return model, fmt.Errorf("failed to prepare statement (%s): %w", repo.entitas, err)
+		return model, fmt.Errorf("failed to prepare statement (%s): %w", repo.entity, err)
 	}
 	defer prepare.Close()
 
@@ -176,14 +176,14 @@ func (repo *Repository[T]) Get(ctx context.Context, filter dto.FilterGroup, colu
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return model, fmt.Errorf("failed to get data (%s): %w", repo.entitas, err)
+		return model, fmt.Errorf("failed to get data (%s): %w", repo.entity, err)
 	}
 
 	return model, nil
 }
 
 func (repo *Repository[T]) GetAll(ctx context.Context, params dto.QueryParams, filter dto.FilterGroup, columns ...string) ([]T, error) {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.GetAll", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.GetAll", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	where, args := repo.BuildWhereClause(ctx, filter)
@@ -220,7 +220,7 @@ func (repo *Repository[T]) GetAll(ctx context.Context, params dto.QueryParams, f
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return models, fmt.Errorf("failed to prepare statement (%s): %w", repo.entitas, err)
+		return models, fmt.Errorf("failed to prepare statement (%s): %w", repo.entity, err)
 	}
 	defer prepare.Close()
 
@@ -229,14 +229,14 @@ func (repo *Repository[T]) GetAll(ctx context.Context, params dto.QueryParams, f
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return models, fmt.Errorf("failed to get all data (%s): %w", repo.entitas, err)
+		return models, fmt.Errorf("failed to get all data (%s): %w", repo.entity, err)
 	}
 
 	return models, nil
 }
 
 func (repo *Repository[T]) Count(ctx context.Context, filter dto.FilterGroup) (int, error) {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Count", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Count", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	where, args := repo.BuildWhereClause(ctx, filter)
@@ -251,7 +251,7 @@ func (repo *Repository[T]) Count(ctx context.Context, filter dto.FilterGroup) (i
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return 0, fmt.Errorf("failed to prepare statement (%s): %w", repo.entitas, err)
+		return 0, fmt.Errorf("failed to prepare statement (%s): %w", repo.entity, err)
 	}
 	defer prepare.Close()
 
@@ -260,14 +260,14 @@ func (repo *Repository[T]) Count(ctx context.Context, filter dto.FilterGroup) (i
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return 0, fmt.Errorf("failed to count data (%s): %w", repo.entitas, err)
+		return 0, fmt.Errorf("failed to count data (%s): %w", repo.entity, err)
 	}
 
 	return count, nil
 }
 
 func (repo *Repository[T]) delete(ctx context.Context, exec execer, filter dto.FilterGroup) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.delete", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.delete", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	where, args := repo.BuildWhereClause(ctx, filter)
@@ -283,21 +283,21 @@ func (repo *Repository[T]) delete(ctx context.Context, exec execer, filter dto.F
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return fmt.Errorf("failed to delete data (%s): %w", repo.entitas, err)
+		return fmt.Errorf("failed to delete data (%s): %w", repo.entity, err)
 	}
 
 	return nil
 }
 
 func (repo *Repository[T]) Delete(ctx context.Context, filter dto.FilterGroup) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Delete", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.Delete", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	return repo.delete(ctx, repo.db.Write, filter) //nolint:wrapcheck
 }
 
 func (repo *Repository[T]) DeleteTx(ctx context.Context, sqltx *sqlx.Tx, filter dto.FilterGroup) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.DeleteTx", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.DeleteTx", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	return repo.delete(ctx, sqltx, filter) //nolint:wrapcheck
@@ -325,7 +325,7 @@ func (repo *Repository[T]) update(ctx context.Context, exec execer, mod map[stri
 		logger.ErrorWithStack(err)
 		scope.TraceError(err)
 
-		return fmt.Errorf("failed to update data (%s): %w", repo.entitas, err)
+		return fmt.Errorf("failed to update data (%s): %w", repo.entity, err)
 	}
 
 	return nil
@@ -346,21 +346,21 @@ func (repo *Repository[T]) UpdateTx(ctx context.Context, sqltx *sqlx.Tx, mod map
 }
 
 func (repo *Repository[T]) InsertBulk(ctx context.Context, models []T) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.InsertBulk", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.InsertBulk", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	return repo.insertBulk(ctx, repo.db.Write, models)
 }
 
 func (repo *Repository[T]) InsertBulkTx(ctx context.Context, sqltx *sqlx.Tx, models []T) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.InsertBulkTx", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.InsertBulkTx", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	return repo.insertBulk(ctx, sqltx, models)
 }
 
 func (repo *Repository[T]) insertBulk(ctx context.Context, exec execer, models []T) error {
-	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.insertBulk", constant.OtelRepositoryScopeName, repo.entitas))
+	ctx, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.insertBulk", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	var err error
@@ -372,7 +372,7 @@ func (repo *Repository[T]) insertBulk(ctx context.Context, exec execer, models [
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", repo.table, strings.Join(repo.InsertColumns, ", "), strings.Join(placeholder, ", "))
 
-	scope.SetAttribute(constant.OtelQueryAttributeKey+repo.entitas, query)
+	scope.SetAttribute(constant.OtelQueryAttributeKey+repo.entity, query)
 
 	_, err = exec.NamedExecContext(ctx, query, models)
 	if err != nil {
@@ -386,7 +386,7 @@ func (repo *Repository[T]) insertBulk(ctx context.Context, exec execer, models [
 }
 
 func (repo *Repository[T]) getSelectQuery(ctx context.Context, columnsParam ...string) string {
-	_, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.getSelectQuery", constant.OtelRepositoryScopeName, repo.entitas))
+	_, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.getSelectQuery", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	columns := []string{}
@@ -417,7 +417,7 @@ func (repo *Repository[T]) getSelectQuery(ctx context.Context, columnsParam ...s
 }
 
 func (repo *Repository[T]) BuildWhereClause(ctx context.Context, filter dto.FilterGroup) (string, map[string]any) {
-	_, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.BuildWhereClause", constant.OtelRepositoryScopeName, repo.entitas))
+	_, scope := repo.otel.NewScope(ctx, constant.OtelRepositoryScopeName, fmt.Sprintf("%s.%s.BuildWhereClause", constant.OtelRepositoryScopeName, repo.entity))
 	defer scope.End()
 
 	where, args := filter.GetWhereClause()
