@@ -16,7 +16,7 @@ import (
 const (
 	otelScopeName         = "cache"
 	otelCacheKeyAttribute = "cache.key"
-	CacheNil              = redis.Nil
+	Nil                   = redis.Nil
 )
 
 type RedisCache interface {
