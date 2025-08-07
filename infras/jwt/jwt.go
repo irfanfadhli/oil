@@ -298,7 +298,7 @@ func (s *Service) IsTokenRevoked(ctx context.Context, tokenID string) (bool, err
 
 	err := s.cache.Get(ctx, blacklistKey, &result)
 	if err != nil {
-		if errors.Is(err, cache.CacheNil) {
+		if errors.Is(err, cache.Nil) {
 			return false, nil
 		}
 

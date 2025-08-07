@@ -93,7 +93,7 @@ func (a *appMiddleware) RateLimit() fiber.Handler {
 		err := a.cache.Get(c.UserContext(), cacheKey, &count)
 
 		if err != nil {
-			if errors.Is(err, cache.CacheNil) {
+			if errors.Is(err, cache.Nil) {
 				count = 1
 			} else {
 				return c.Next()
