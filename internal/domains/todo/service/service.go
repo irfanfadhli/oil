@@ -18,12 +18,15 @@ import (
 )
 
 const (
-	cacheGetTodo = "todo"
+	cacheGetTodo    = "todo:get"
+	cacheGetAllTodo = "todo:gets"
+	cacheCountTodo  = "todo:count"
 )
 
 type Todo interface {
 	Create(ctx context.Context, req dto.CreateTodoRequest) error
 	GetAll(ctx context.Context, req gDto.QueryParams, filter gDto.FilterGroup) (dto.GetTodosResponse, error)
+	Count(ctx context.Context, req gDto.QueryParams, filter gDto.FilterGroup) (int, error)
 	Get(ctx context.Context, id string) (dto.TodoResponse, error)
 	Update(ctx context.Context, req dto.UpdateTodoRequest, id string) error
 	Delete(ctx context.Context, id string) error
@@ -58,6 +61,13 @@ func (s *serviceImpl) Create(ctx context.Context, req dto.CreateTodoRequest) (er
 		return fmt.Errorf("failed to create todo: %w", err)
 	}
 
+	go func() {
+		c := context.WithoutCancel(ctx)
+
+		shared.InvalidateCaches(c, s.cache, cacheGetAllTodo)
+		shared.InvalidateCaches(c, s.cache, cacheCountTodo)
+	}()
+
 	return nil
 }
 
@@ -66,7 +76,16 @@ func (s *serviceImpl) GetAll(ctx context.Context, req gDto.QueryParams, filter g
 	defer scope.End()
 	defer scope.TraceIfError(err)
 
-	total, err := s.repo.Count(ctx, filter)
+	cacheKey := shared.BuildCacheKeyWithQuery(cacheGetAllTodo, req, filter)
+
+	err = s.cache.Get(ctx, cacheKey, &res)
+	if err == nil {
+		log.Info().Str("cacheKey", cacheKey).Msg("cache hit for todos")
+
+		return res, nil
+	}
+
+	total, err := s.Count(ctx, req, filter)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to count todos")
 
@@ -81,6 +100,46 @@ func (s *serviceImpl) GetAll(ctx context.Context, req gDto.QueryParams, filter g
 	}
 
 	res.FromModels(models, total, req.Limit)
+
+	go func() {
+		c := context.WithoutCancel(ctx)
+
+		if err := s.cache.Save(c, cacheKey, res, s.cfg.Cache.TTL); err != nil {
+			log.Error().Err(err).Msg("failed to save todos to cache")
+		}
+	}()
+
+	return res, nil
+}
+
+func (s *serviceImpl) Count(ctx context.Context, req gDto.QueryParams, filter gDto.FilterGroup) (res int, err error) {
+	ctx, scope := s.otel.NewScope(ctx, constant.OtelServiceScopeName, constant.OtelServiceScopeName+".Count")
+	defer scope.End()
+	defer scope.TraceIfError(err)
+
+	cacheKey := shared.BuildCacheKeyWithQuery(cacheCountTodo, req, filter)
+
+	err = s.cache.Get(ctx, cacheKey, &res)
+	if err == nil {
+		log.Info().Str("cacheKey", cacheKey).Msg("cache hit for todo count")
+
+		return res, nil
+	}
+
+	res, err = s.repo.Count(ctx, filter)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to count todos")
+
+		return res, fmt.Errorf("failed to count todos: %w", err)
+	}
+
+	go func() {
+		c := context.WithoutCancel(ctx)
+
+		if err := s.cache.Save(c, cacheKey, res, s.cfg.Cache.TTL); err != nil {
+			log.Error().Err(err).Msg("failed to save todo count to cache")
+		}
+	}()
 
 	return res, nil
 }
@@ -106,7 +165,7 @@ func (s *serviceImpl) Get(ctx context.Context, id string) (res dto.TodoResponse,
 		return res, fmt.Errorf("failed to get todo: %w", err)
 	}
 
-	if todo.ID == "" {
+	if todo.ID == constant.Empty {
 		return res, failure.NotFound("todo not found") // nolint:wrapcheck
 	}
 
@@ -161,6 +220,9 @@ func (s *serviceImpl) Update(ctx context.Context, req dto.UpdateTodoRequest, id 
 		if err := s.cache.Delete(c, shared.BuildCacheKey(cacheGetTodo, id)); err != nil {
 			log.Error().Err(err).Msg("failed to delete todo from cache")
 		}
+
+		shared.InvalidateCaches(c, s.cache, cacheGetAllTodo)
+		shared.InvalidateCaches(c, s.cache, cacheCountTodo)
 	}()
 
 	return nil
@@ -196,6 +258,9 @@ func (s *serviceImpl) Delete(ctx context.Context, id string) error {
 		if err := s.cache.Delete(c, shared.BuildCacheKey(cacheGetTodo, id)); err != nil {
 			log.Error().Err(err).Msg("failed to delete todo from cache")
 		}
+
+		shared.InvalidateCaches(c, s.cache, cacheGetAllTodo)
+		shared.InvalidateCaches(c, s.cache, cacheCountTodo)
 	}()
 
 	return nil

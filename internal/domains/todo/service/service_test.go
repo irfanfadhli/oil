@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -50,6 +51,11 @@ func TestTodoService_Create(t *testing.T) {
 				mockRepo.EXPECT().
 					Insert(gomock.Any(), gomock.Any()).
 					Return(nil)
+
+				mockCache.EXPECT().
+					Clear(gomock.Any(), gomock.Any()).
+					Return(nil).
+					AnyTimes()
 			},
 			wantErr: false,
 		},
@@ -74,6 +80,9 @@ func TestTodoService_Create(t *testing.T) {
 
 			ctx := context.WithValue(context.Background(), constant.ContextKeyUserID, "test-user-id")
 			err := svc.Create(ctx, tt.req)
+
+			// Allow time for goroutines to complete
+			time.Sleep(10 * time.Millisecond)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -113,6 +122,14 @@ func TestTodoService_GetAll(t *testing.T) {
 			},
 			filter: gDto.FilterGroup{},
 			setupMock: func() {
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("cache miss"))
+
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("cache miss"))
+
 				mockRepo.EXPECT().
 					Count(gomock.Any(), gomock.Any()).
 					Return(1, nil)
@@ -135,6 +152,11 @@ func TestTodoService_GetAll(t *testing.T) {
 				mockRepo.EXPECT().
 					GetAll(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(todos, nil)
+
+				mockCache.EXPECT().
+					Save(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil).
+					AnyTimes()
 			},
 			wantErr: false,
 			wantResult: dto.GetTodosResponse{
@@ -150,6 +172,14 @@ func TestTodoService_GetAll(t *testing.T) {
 			},
 			filter: gDto.FilterGroup{},
 			setupMock: func() {
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("cache miss"))
+
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("cache miss"))
+
 				mockRepo.EXPECT().
 					Count(gomock.Any(), gomock.Any()).
 					Return(0, errors.New("count error"))
@@ -164,9 +194,22 @@ func TestTodoService_GetAll(t *testing.T) {
 			},
 			filter: gDto.FilterGroup{},
 			setupMock: func() {
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("cache miss"))
+
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("cache miss"))
+
 				mockRepo.EXPECT().
 					Count(gomock.Any(), gomock.Any()).
 					Return(1, nil)
+
+				mockCache.EXPECT().
+					Save(gomock.Any(), gomock.Any(), 1, gomock.Any()).
+					Return(nil).
+					AnyTimes()
 
 				mockRepo.EXPECT().
 					GetAll(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -183,12 +226,110 @@ func TestTodoService_GetAll(t *testing.T) {
 			ctx := context.Background()
 			result, err := svc.GetAll(ctx, tt.params, tt.filter)
 
+			// Allow time for goroutines to complete
+			time.Sleep(10 * time.Millisecond)
+
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.wantResult.TotalData, result.TotalData)
 				assert.Equal(t, tt.wantResult.TotalPage, result.TotalPage)
+			}
+		})
+	}
+}
+
+func TestTodoService_Count(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRepo := todoMocks.NewMockTodo(ctrl)
+	mockCache := cacheMocks.NewMockRedisCache(ctrl)
+	mockOtel := mocks.NewOtel()
+
+	cfg := &config.Config{}
+	cfg.Cache.TTL = 3600
+
+	svc := service.New(mockRepo, cfg, mockCache, mockOtel)
+
+	tests := []struct {
+		name       string
+		params     gDto.QueryParams
+		filter     gDto.FilterGroup
+		setupMock  func()
+		wantResult int
+		wantErr    bool
+	}{
+		{
+			name:   "successful count with cache hit",
+			params: gDto.QueryParams{},
+			filter: gDto.FilterGroup{},
+			setupMock: func() {
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, key string, dest *int) error {
+						*dest = 5
+						return nil
+					})
+			},
+			wantResult: 5,
+			wantErr:    false,
+		},
+		{
+			name:   "successful count with cache miss",
+			params: gDto.QueryParams{},
+			filter: gDto.FilterGroup{},
+			setupMock: func() {
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("cache miss"))
+
+				mockRepo.EXPECT().
+					Count(gomock.Any(), gomock.Any()).
+					Return(10, nil)
+
+				mockCache.EXPECT().
+					Save(gomock.Any(), gomock.Any(), 10, gomock.Any()).
+					Return(nil).
+					AnyTimes()
+			},
+			wantResult: 10,
+			wantErr:    false,
+		},
+		{
+			name:   "repository error",
+			params: gDto.QueryParams{},
+			filter: gDto.FilterGroup{},
+			setupMock: func() {
+				mockCache.EXPECT().
+					Get(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(errors.New("cache miss"))
+
+				mockRepo.EXPECT().
+					Count(gomock.Any(), gomock.Any()).
+					Return(0, errors.New("database error"))
+			},
+			wantResult: 0,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setupMock()
+
+			ctx := context.Background()
+			result, err := svc.Count(ctx, tt.params, tt.filter)
+
+			// Allow time for goroutines to complete
+			time.Sleep(10 * time.Millisecond)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantResult, result)
 			}
 		})
 	}
@@ -295,6 +436,9 @@ func TestTodoService_Get(t *testing.T) {
 			ctx := context.Background()
 			result, err := svc.Get(ctx, tt.id)
 
+			// Allow time for goroutines to complete
+			time.Sleep(10 * time.Millisecond)
+
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -345,6 +489,10 @@ func TestTodoService_Update(t *testing.T) {
 
 				mockCache.EXPECT().
 					Delete(gomock.Any(), gomock.Any()).
+					Return(nil)
+
+				mockCache.EXPECT().
+					Clear(gomock.Any(), gomock.Any()).
 					Return(nil).
 					AnyTimes()
 			},
@@ -411,6 +559,9 @@ func TestTodoService_Update(t *testing.T) {
 			ctx := context.WithValue(context.Background(), constant.ContextKeyUserID, "test-user-id")
 			err := svc.Update(ctx, tt.req, tt.id)
 
+			// Allow time for goroutines to complete
+			time.Sleep(10 * time.Millisecond)
+
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -453,6 +604,10 @@ func TestTodoService_Delete(t *testing.T) {
 
 				mockCache.EXPECT().
 					Delete(gomock.Any(), gomock.Any()).
+					Return(nil)
+
+				mockCache.EXPECT().
+					Clear(gomock.Any(), gomock.Any()).
 					Return(nil).
 					AnyTimes()
 			},
@@ -500,6 +655,9 @@ func TestTodoService_Delete(t *testing.T) {
 
 			ctx := context.Background()
 			err := svc.Delete(ctx, tt.id)
+
+			// Allow time for goroutines to complete
+			time.Sleep(10 * time.Millisecond)
 
 			if tt.wantErr {
 				assert.Error(t, err)
