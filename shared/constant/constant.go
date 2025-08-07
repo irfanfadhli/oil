@@ -86,3 +86,8 @@ const (
 	ServerEnvDevelopment = "development"
 	ServerEnvProduction  = "production"
 )
+
+const (
+	Asterix = "*"
+	Empty   = ""
+)

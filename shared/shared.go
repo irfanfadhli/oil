@@ -1,16 +1,21 @@
 package shared
 
 import (
+	"context"
+	"crypto/md5"
+	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"math"
 	"oil/config"
+	"oil/shared/cache"
 	"oil/shared/constant"
 	"oil/shared/dto"
 	"oil/shared/timezone"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 func ConvertStringToBool(value string) *bool {
@@ -39,7 +44,7 @@ func CalculateTotalPage(total, limit int) (res int) {
 }
 
 // TransformFields converts the fields of a struct into a map of updated fields.
-func TransformFields(data interface{}, username string) map[string]any {
+func TransformFields(data interface{}, user string) map[string]any {
 	val := reflect.ValueOf(data)
 	typ := reflect.TypeOf(data)
 
@@ -60,7 +65,7 @@ func TransformFields(data interface{}, username string) map[string]any {
 	}
 
 	updatedFields[constant.FieldModifiedAt] = timezone.Now()
-	updatedFields[constant.FieldModifiedBy] = username
+	updatedFields[constant.FieldModifiedBy] = user
 
 	return updatedFields
 }
@@ -89,4 +94,41 @@ func BuildCacheKey(key string, postfix ...string) string {
 	}
 
 	return fmt.Sprintf("%s:cache:%s", parent, key)
+}
+
+func BuildCacheKeyWithQuery(key string, queryParams dto.QueryParams, filter dto.FilterGroup) string {
+	cfg := config.Get()
+	parent := cfg.App.Name
+
+	queryHash := generateQueryHash(queryParams, filter)
+
+	return fmt.Sprintf("%s:cache:%s:%s", parent, key, queryHash)
+}
+
+func generateQueryHash(queryParams dto.QueryParams, filter dto.FilterGroup) string {
+	queryData := struct {
+		QueryParams dto.QueryParams `json:"query_params"`
+		Filter      dto.FilterGroup `json:"filter"`
+	}{
+		QueryParams: queryParams,
+		Filter:      filter,
+	}
+
+	jsonData, err := json.Marshal(queryData)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to marshal query data for cache key")
+
+		return fmt.Sprintf("page_%d_limit_%d_sortBy_%s_sortDir_%s",
+			queryParams.Page, queryParams.Limit, queryParams.SortBy, queryParams.SortDir)
+	}
+
+	hash := md5.Sum(jsonData)
+
+	return hex.EncodeToString(hash[:])
+}
+
+func InvalidateCaches(ctx context.Context, cache cache.RedisCache, key string) {
+	if err := cache.Clear(ctx, BuildCacheKey(key, constant.Asterix)); err != nil {
+		log.Error().Err(err).Msgf("failed to clear cache for key: %s", key)
+	}
 }
