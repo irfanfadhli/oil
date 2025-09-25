@@ -96,11 +96,11 @@ func (h *HTTP) setupRoutes() {
 }
 
 func (h *HTTP) setupMiddlewares() {
+	h.setupCORS()
 	h.setupServerState()
 	h.setupRecover()
 	h.setupLogger()
 	h.setupRateLimit()
-	h.setupCORS()
 	h.setupTracing()
 	h.logCORSConfigInfo()
 }
@@ -132,9 +132,10 @@ func (h *HTTP) setupLogger() {
 		}))
 	} else {
 		h.fiber.Use(fiberLogger.New(fiberLogger.Config{
-			Format:     "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path}\n",
-			TimeFormat: "2006-01-02T15:04:05Z07:00",
-			TimeZone:   "Local",
+			Format:        "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path}\n",
+			TimeFormat:    "2006-01-02T15:04:05Z07:00",
+			TimeZone:      "Local",
+			DisableColors: true,
 		}))
 	}
 }
