@@ -34,3 +34,7 @@ bin/
 
 # Ignore build results
 engine
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
