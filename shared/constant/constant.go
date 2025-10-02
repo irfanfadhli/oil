@@ -19,9 +19,9 @@ const (
 )
 
 const (
-	RoleSuperAdmin = "0"
-	RoleAdmin      = "1"
-	RoleUser       = "2"
+	RoleSuperAdmin = "superadmin"
+	RoleAdmin      = "admin"
+	RoleUser       = "user"
 )
 
 const (
@@ -29,6 +29,10 @@ const (
 	RequestParamLimit   = "limit"
 	RequestParamSortBy  = "sort_by"
 	RequestParamSortDir = "sort_dir"
+)
+
+const (
+	RequestParamID = "id"
 )
 
 const (
@@ -70,10 +74,22 @@ const (
 )
 
 const (
-	ContextKeyRateLimit          = "X-RateLimit-Limit"
-	ContextKeyRateLimitRemaining = "X-RateLimit-Remaining"
-	ContextKeyRateLimitWindow    = "X-RateLimit-Window"
-	ContextKeyUserAgent          = "User-Agent"
+	RequestHeaderAuthorization      = "Authorization"
+	RequestHeaderUserAgent          = "User-Agent"
+	RequestHeaderContentType        = "Content-Type"
+	RequestHeaderRateLimit          = "X-RateLimit-Limit"
+	RequestHeaderRateLimitRemaining = "X-RateLimit-Remaining"
+	RequestHeaderRateLimitWindow    = "X-RateLimit-Window"
+	RequestHeaderRequestID          = "X-Request-ID"
+	RequestHeaderForwardedFor       = "X-Forwarded-For"
+	RequestHeaderRealIP             = "X-Real-IP"
+	RequestHeaderAPIKey             = "X-API-Key"
+)
+
+const (
+	ContentTypeJSON              = "application/json"
+	ContentTypeFormURLEncoded    = "application/x-www-form-urlencoded"
+	ContentTypeMultipartFormData = "multipart/form-data"
 )
 
 const (

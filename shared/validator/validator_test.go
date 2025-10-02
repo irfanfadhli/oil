@@ -4,20 +4,10 @@ import (
 	"oil/shared/validator"
 	"strings"
 	"testing"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/valyala/fasthttp"
 )
 
 // Test structs for validation
 type ValidTestStruct struct {
-	Name     string `validate:"required" json:"name"`
-	Email    string `validate:"required,email" json:"email"`
-	Age      int    `validate:"gte=0,lte=120" json:"age"`
-	Category string `validate:"oneof=user admin guest" json:"category"`
-}
-
-type InvalidTestStruct struct {
 	Name     string `validate:"required" json:"name"`
 	Email    string `validate:"required,email" json:"email"`
 	Age      int    `validate:"gte=0,lte=120" json:"age"`
@@ -179,8 +169,6 @@ func TestValidateVar(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	app := fiber.New()
-
 	tests := []struct {
 		name        string
 		jsonBody    string
@@ -210,15 +198,9 @@ func TestValidate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock HTTP request context properly
-			ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
-			defer app.ReleaseCtx(ctx)
-
-			ctx.Request().SetBody([]byte(tt.jsonBody))
-			ctx.Request().Header.SetContentType("application/json")
-
+			reader := strings.NewReader(tt.jsonBody)
 			var data ValidTestStruct
-			err := validator.Validate(ctx, &data)
+			err := validator.Validate(reader, &data)
 
 			if tt.expectError && err == nil {
 				t.Error("expected validation error, got nil")
@@ -227,8 +209,6 @@ func TestValidate(t *testing.T) {
 			if !tt.expectError && err != nil {
 				t.Errorf("expected no validation error, got: %v", err)
 			}
-
-			app.ReleaseCtx(ctx)
 		})
 	}
 }

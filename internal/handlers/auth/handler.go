@@ -1,14 +1,16 @@
 package auth
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/rs/zerolog/log"
+	"net/http"
 	"oil/infras/otel"
 	"oil/internal/domains/auth/model/dto"
 	"oil/internal/domains/auth/service"
 	"oil/shared/constant"
 	"oil/shared/validator"
 	"oil/transport/http/response"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 )
 
 type Handler struct {
@@ -23,8 +25,8 @@ func New(service service.Auth, otel otel.Otel) Handler {
 	}
 }
 
-func (handler *Handler) Router(r fiber.Router) {
-	r.Route("/auth", func(r fiber.Router) {
+func (handler *Handler) Router(r chi.Router) {
+	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", handler.Register)
 		r.Post("/login", handler.Login)
 		r.Post("/refresh-token", handler.RefreshToken)
@@ -42,29 +44,33 @@ func (handler *Handler) Router(r fiber.Router) {
 // @Failure 400 {object} response.Error
 // @Failure 500 {object} response.Error
 // @Router /v1/auth/register [post]
-func (handler *Handler) Register(c *fiber.Ctx) error {
-	ctx, scope := handler.otel.NewScope(c.UserContext(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".Register")
+func (handler *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".Register")
 	defer scope.End()
 
 	req := dto.RegisterRequest{}
 
-	if err := validator.Validate(c, &req); err != nil {
+	if err := validator.Validate(r.Body, &req); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to validate request body")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	if err := handler.service.Register(ctx, req); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to create todo")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	scope.AddEvent("User registered successfully")
 
-	return response.WithMessage(c, fiber.StatusCreated, "User registered successfully")
+	response.WithMessage(w, http.StatusCreated, "User registered successfully")
 }
 
 // Login handles user login
@@ -78,17 +84,19 @@ func (handler *Handler) Register(c *fiber.Ctx) error {
 // @Failure 400 {object} response.Error
 // @Failure 500 {object} response.Error
 // @Router /v1/auth/login [post]
-func (handler *Handler) Login(c *fiber.Ctx) error {
-	ctx, scope := handler.otel.NewScope(c.UserContext(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".Login")
+func (handler *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".Login")
 	defer scope.End()
 
 	req := dto.LoginRequest{}
 
-	if err := validator.Validate(c, &req); err != nil {
+	if err := validator.Validate(r.Body, &req); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to validate request body")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	res, err := handler.service.Login(ctx, req)
@@ -96,12 +104,14 @@ func (handler *Handler) Login(c *fiber.Ctx) error {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to login user")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	scope.AddEvent("User logged in successfully")
 
-	return response.WithJSON(c, fiber.StatusOK, res)
+	response.WithJSON(w, http.StatusOK, res)
 }
 
 // RefreshToken handles token refresh
@@ -115,17 +125,19 @@ func (handler *Handler) Login(c *fiber.Ctx) error {
 // @Failure 400 {object} response.Error
 // @Failure 500 {object} response.Error
 // @Router /v1/auth/refresh-token [post]
-func (handler *Handler) RefreshToken(c *fiber.Ctx) error {
-	ctx, scope := handler.otel.NewScope(c.UserContext(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".RefreshToken")
+func (handler *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".RefreshToken")
 	defer scope.End()
 
 	req := dto.RefreshTokenRequest{}
 
-	if err := validator.Validate(c, &req); err != nil {
+	if err := validator.Validate(r.Body, &req); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to validate request body")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	res, err := handler.service.RefreshToken(ctx, req)
@@ -133,10 +145,12 @@ func (handler *Handler) RefreshToken(c *fiber.Ctx) error {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to refresh token")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	scope.AddEvent("Token refreshed successfully")
 
-	return response.WithJSON(c, fiber.StatusOK, res)
+	response.WithJSON(w, http.StatusOK, res)
 }

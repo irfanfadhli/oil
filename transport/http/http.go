@@ -14,17 +14,17 @@ import (
 	"oil/transport/http/router"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	fiberLogger "github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/adaptor"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/swagger"
 	"github.com/rs/zerolog/log"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type ServerState int
@@ -41,20 +41,22 @@ const (
 )
 
 type HTTP struct {
-	Config        *config.Config
-	Router        router.Router
-	State         ServerState
-	fiber         *fiber.App
-	DB            *postgres.Connection
-	appMiddleware httpMiddleware.AppMiddleware
+	Config         *config.Config
+	Router         router.Router
+	State          ServerState
+	mux            *chi.Mux
+	DB             *postgres.Connection
+	appMiddleware  httpMiddleware.AppMiddleware
+	authMiddleware httpMiddleware.AuthRole
 }
 
-func New(cfg *config.Config, r router.Router, db *postgres.Connection, appMiddleware httpMiddleware.AppMiddleware) *HTTP {
+func New(cfg *config.Config, r router.Router, db *postgres.Connection, appMiddleware httpMiddleware.AppMiddleware, authMiddleware httpMiddleware.AuthRole) *HTTP {
 	return &HTTP{
-		Config:        cfg,
-		Router:        r,
-		DB:            db,
-		appMiddleware: appMiddleware,
+		Config:         cfg,
+		Router:         r,
+		DB:             db,
+		appMiddleware:  appMiddleware,
+		authMiddleware: authMiddleware,
 	}
 }
 
@@ -63,19 +65,18 @@ func (h *HTTP) Serve() {
 
 	log.Info().Str("port", h.Config.Server.Port).Msg("Starting up HTTP server.")
 
-	if err := h.fiber.Listen(net.JoinHostPort("0.0.0.0", h.Config.Server.Port)); err != nil {
-		log.Fatal().Err(err).Msg("Failed to start HTTP server")
+	if err := http.ListenAndServe(net.JoinHostPort("0.0.0.0", h.Config.Server.Port), h.mux); err != nil {
+		logger.ErrorWithStack(err)
 	}
 }
 
-func (h *HTTP) Adaptor() http.HandlerFunc {
+func (h *HTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.setup()
-
-	return adaptor.FiberApp(h.fiber)
+	h.mux.ServeHTTP(w, r)
 }
 
 func (h *HTTP) setup() {
-	h.setupFiber()
+	h.setupChi()
 	h.setupMiddlewares()
 	h.setupRoutes()
 	h.setupSwaggerDocs()
@@ -83,79 +84,102 @@ func (h *HTTP) setup() {
 	h.State = ServerStateReady
 }
 
-func (h *HTTP) setupFiber() {
-	h.fiber = fiber.New(fiber.Config{
-		DisableStartupMessage: true,
-	})
+func (h *HTTP) setupChi() {
+	h.mux = chi.NewRouter()
 }
 
 func (h *HTTP) setupRoutes() {
-	h.fiber.Get(RouteHealthCheck, h.healthCheck)
+	h.mux.Get(RouteHealthCheck, h.healthCheck)
 
-	h.Router.SetupRoutes(h.fiber)
+	h.mux.
+		With(
+			h.authMiddleware.APIKey,
+			h.authMiddleware.Auth,
+			h.authMiddleware.RBAC,
+		).
+		Group(func(rc chi.Router) {
+			h.Router.SetupRoutes(rc)
+		})
 }
 
 func (h *HTTP) setupMiddlewares() {
+	h.setupLogger()
 	h.setupCORS()
 	h.setupServerState()
+	h.setupIdentity()
 	h.setupRecover()
-	h.setupLogger()
 	h.setupRateLimit()
 	h.setupTracing()
+
 	h.logCORSConfigInfo()
 }
 
+func (h *HTTP) setupIdentity() {
+	h.mux.Use(middleware.RequestID)
+	h.mux.Use(middleware.RealIP)
+}
+
 func (h *HTTP) setupRecover() {
-	h.fiber.Use(recover.New(recover.Config{
-		EnableStackTrace: h.Config.Server.Env == constant.ServerEnvDevelopment,
-		StackTraceHandler: func(c *fiber.Ctx, e interface{}) {
-			log.Error().
-				Interface("panic", e).
-				Str("path", c.Path()).
-				Str("method", c.Method()).
-				Str("ip", c.IP()).
-				Msg("Panic recovered")
-		},
-	}))
+	h.mux.Use(middleware.Recoverer)
 }
 
 func (h *HTTP) setupServerState() {
-	h.fiber.Use(h.serverStateMiddleware())
+	h.mux.Use(h.serverStateMiddleware)
 }
 
 func (h *HTTP) setupLogger() {
 	if h.Config.Server.Env == constant.ServerEnvDevelopment {
-		h.fiber.Use(fiberLogger.New(fiberLogger.Config{
-			Format:     "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | ${error}\n",
-			TimeFormat: "15:04:05",
-			TimeZone:   "Local",
-		}))
+		h.mux.Use(middleware.Logger)
 	} else {
-		h.fiber.Use(fiberLogger.New(fiberLogger.Config{
-			Format:        "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path}\n",
-			TimeFormat:    "2006-01-02T15:04:05Z07:00",
-			TimeZone:      "Local",
-			DisableColors: true,
-		}))
+		h.mux.Use(h.customJSONLogger())
+	}
+}
+
+func (h *HTTP) customJSONLogger() func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+
+			// Create a wrapped response writer to capture status code
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+
+			defer func() {
+				// Log the request in JSON format
+				log.Info().
+					Str("method", r.Method).
+					Str("url", r.URL.RequestURI()).
+					Str("proto", r.Proto).
+					Str("remote_addr", r.RemoteAddr).
+					Str("user_agent", r.UserAgent()).
+					Int("status", ww.Status()).
+					Int("bytes", ww.BytesWritten()).
+					Dur("duration", time.Since(start)).
+					Str("request_id", middleware.GetReqID(r.Context())).
+					Msg("HTTP Request")
+			}()
+
+			next.ServeHTTP(ww, r)
+		})
 	}
 }
 
 func (h *HTTP) setupTracing() {
-	h.fiber.Use(h.appMiddleware.Tracing)
+	h.mux.Use(h.appMiddleware.Tracing)
 }
 
 func (h *HTTP) setupRateLimit() {
 	rateLimitConfig := h.Config.App.RateLimiter
 
-	rateLimitHandler := h.appMiddleware.RateLimit()
-	if rateLimitHandler != nil {
+	if rateLimitConfig.Enable {
+		rateLimitMiddleware := h.appMiddleware.RateLimit()
+		h.mux.Use(rateLimitMiddleware)
+
 		log.Info().
 			Bool("enabled", rateLimitConfig.Enable).
 			Int("max_requests", rateLimitConfig.MaxRequests).
 			Int("window_seconds", rateLimitConfig.WindowSeconds).
 			Str("storage", "cache-redis").
 			Msg("Rate limiting enabled with Redis cache storage")
-		h.fiber.Use(rateLimitHandler)
 	} else {
 		log.Info().Msg("Rate limiting disabled")
 	}
@@ -164,7 +188,9 @@ func (h *HTTP) setupRateLimit() {
 func (h *HTTP) setupSwaggerDocs() {
 	if h.Config.Server.Env == constant.ServerEnvDevelopment {
 		docs.SwaggerInfo.Title = h.Config.App.Name
-		h.fiber.Get(RouteSwaggerDocs, swagger.HandlerDefault)
+		h.mux.Get(RouteSwaggerDocs, httpSwagger.Handler())
+
+		log.Info().Str("url", fmt.Sprintf("http://localhost:%s/swagger/index.html", h.Config.Server.Port)).Msg("Swagger docs available at")
 
 		return
 	}
@@ -207,35 +233,32 @@ func (h *HTTP) respondToSigterm(done chan os.Signal) {
 	log.Info().Msg("Cleaning up completed. Shutting down now.")
 }
 
-func (h *HTTP) serverStateMiddleware() fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func (h *HTTP) serverStateMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		switch h.State {
 		case ServerStateReady:
-			// Server is ready to serve, continue normally
-			return c.Next()
+			// Server is ready to serve, don't do anything.
+			next.ServeHTTP(writer, request)
 		case ServerStateInGracePeriod:
 			// Server is in grace period. Issue a warning message and continue
 			// serving as usual.
 			log.Warn().Msg("SERVER IS IN GRACE PERIOD")
-
-			return c.Next()
+			next.ServeHTTP(writer, request)
 		case ServerStateInCleanupPeriod:
 			// Server is in cleanup period. Stop the request from actually
 			// invoking any domain services and respond appropriately.
-			return response.WithPreparingShutdown(c)
-		default:
-			return c.Next()
+			response.WithPreparingShutdown(writer)
 		}
-	}
+	})
 }
 
 func (h *HTTP) setupCORS() {
 	corsConfig := h.Config.App.CORS
 	if corsConfig.Enable {
-		h.fiber.Use(cors.New(cors.Config{
-			AllowOrigins:     corsConfig.AllowedOrigins,
-			AllowMethods:     corsConfig.AllowedMethods,
-			AllowHeaders:     corsConfig.AllowedHeaders,
+		h.mux.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   corsConfig.AllowedOrigins,
+			AllowedMethods:   corsConfig.AllowedMethods,
+			AllowedHeaders:   corsConfig.AllowedHeaders,
 			AllowCredentials: corsConfig.AllowCredentials,
 			MaxAge:           corsConfig.MaxAgeSeconds,
 		}))
@@ -249,9 +272,9 @@ func (h *HTTP) logCORSConfigInfo() {
 	if corsConfig.Enable {
 		log.Info().Msg("CORS Headers and Handlers are enabled.")
 		log.Info().Str(corsHeaderInfo, fmt.Sprintf("Access-Control-Allow-Credentials: %t", corsConfig.AllowCredentials)).Msg("")
-		log.Info().Str(corsHeaderInfo, "Access-Control-Allow-Headers: "+corsConfig.AllowedHeaders).Msg("")
-		log.Info().Str(corsHeaderInfo, "Access-Control-Allow-Methods: "+corsConfig.AllowedMethods).Msg("")
-		log.Info().Str(corsHeaderInfo, "Access-Control-Allow-Origin: "+corsConfig.AllowedOrigins).Msg("")
+		log.Info().Str(corsHeaderInfo, "Access-Control-Allow-Headers: "+strings.Join(corsConfig.AllowedHeaders, ", ")).Msg("")
+		log.Info().Str(corsHeaderInfo, "Access-Control-Allow-Methods: "+strings.Join(corsConfig.AllowedMethods, ", ")).Msg("")
+		log.Info().Str(corsHeaderInfo, "Access-Control-Allow-Origin: "+strings.Join(corsConfig.AllowedOrigins, ", ")).Msg("")
 		log.Info().Str(corsHeaderInfo, fmt.Sprintf("Access-Control-Max-Age: %d", corsConfig.MaxAgeSeconds)).Msg("")
 	} else {
 		log.Info().Msg("CORS Headers are disabled.")
@@ -266,12 +289,13 @@ func (h *HTTP) logCORSConfigInfo() {
 // @Accept json
 // @Success 200 {object} response.Message
 // @Router /health [get]
-func (h *HTTP) healthCheck(c *fiber.Ctx) error {
+func (h *HTTP) healthCheck(writer http.ResponseWriter, _ *http.Request) {
 	if err := h.DB.Read.Ping(); err != nil {
 		logger.ErrorWithStack(err)
+		response.WithUnhealthy(writer)
 
-		return response.WithUnhealthy(c)
+		return
 	}
 
-	return response.WithMessage(c, fiber.StatusOK, "ok")
+	response.WithMessage(writer, http.StatusOK, "ok")
 }

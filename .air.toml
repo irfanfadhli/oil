@@ -19,13 +19,13 @@ full_bin = "./.build/main"
 # Add additional arguments when running binary (bin/full_bin). Will run './.build/main hello world'.
 args_bin = []
 # Watch these filename extensions.
-include_ext = ["go", "tpl", ".buildl", "html", ".env"]
+include_ext = ["go", "tpl", ".buildl", "html"]
 # Ignore these filename extensions or directories.
 exclude_dir = ["assets", ".build", "vendor", "template/node_modules", "test", "docs"]
 # Watch these directories if you specified.
 include_dir = []
 # Watch these files.
-include_file = []
+include_file = ["permissions.json", ".env"]
 # Exclude files.
 exclude_file = []
 # Exclude specific regular expressions.
