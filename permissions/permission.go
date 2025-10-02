@@ -1,12 +1,15 @@
 package permissions
 
 import (
+	_ "embed"
 	"encoding/json"
-	"os"
 	"slices"
 
 	"github.com/rs/zerolog/log"
 )
+
+//go:embed permissions.json
+var permissionsData []byte
 
 type Permission struct {
 	Permissions []string `json:"permissions"`
@@ -33,24 +36,14 @@ func (r *PermissionData) FindPermissions(path, method string) Permission {
 }
 
 func Get() *PermissionData {
-	file, err := os.Open("permissions.json")
-	if err != nil {
-		log.Err(err).Msg("Failed to open file")
-
-		return nil
-	}
-	defer file.Close()
-
 	var permissions PermissionData
 
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&permissions)
-
+	err := json.Unmarshal(permissionsData, &permissions)
 	if err != nil {
-		log.Err(err).Msg("Failed to decode file")
-
+		log.Err(err).Msg("Failed to decode embedded permissions")
 		return nil
 	}
 
+	log.Info().Int("endpoints", len(permissions.Endpoints)).Msg("Successfully loaded embedded permissions")
 	return &permissions
 }
