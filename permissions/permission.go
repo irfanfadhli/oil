@@ -41,9 +41,11 @@ func Get() *PermissionData {
 	err := json.Unmarshal(permissionsData, &permissions)
 	if err != nil {
 		log.Err(err).Msg("Failed to decode embedded permissions")
+
 		return nil
 	}
 
 	log.Info().Int("endpoints", len(permissions.Endpoints)).Msg("Successfully loaded embedded permissions")
+
 	return &permissions
 }
