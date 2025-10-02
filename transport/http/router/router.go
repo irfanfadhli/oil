@@ -1,7 +1,7 @@
 package router
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/go-chi/chi/v5"
 	"oil/internal/handlers/auth"
 	"oil/internal/handlers/todo"
 )
@@ -15,8 +15,8 @@ type Router struct {
 	DomainHandlers DomainHandlers
 }
 
-func (r *Router) SetupRoutes(router fiber.Router) {
-	router.Route("/v1", func(routerGroup fiber.Router) {
+func (r *Router) SetupRoutes(router chi.Router) {
+	router.Route("/v1", func(routerGroup chi.Router) {
 		r.DomainHandlers.Todo.Router(routerGroup)
 		r.DomainHandlers.Auth.Router(routerGroup)
 	})

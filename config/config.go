@@ -25,18 +25,19 @@ type Config struct {
 		Name     string `envconfig:"APP_NAME"`
 		Timezone string `envconfig:"TIMEZONE"`
 		CORS     struct {
-			AllowCredentials bool   `envconfig:"ALLOW_CREDENTIALS"`
-			AllowedHeaders   string `envconfig:"ALLOWED_HEADERS"`
-			AllowedMethods   string `envconfig:"ALLOWED_METHODS"`
-			AllowedOrigins   string `envconfig:"ALLOWED_ORIGINS"`
-			Enable           bool   `envconfig:"ENABLE"`
-			MaxAgeSeconds    int    `envconfig:"MAX_AGE_SECONDS"`
+			AllowCredentials bool     `envconfig:"ALLOW_CREDENTIALS"`
+			AllowedHeaders   []string `envconfig:"ALLOWED_HEADERS"`
+			AllowedMethods   []string `envconfig:"ALLOWED_METHODS"`
+			AllowedOrigins   []string `envconfig:"ALLOWED_ORIGINS"`
+			Enable           bool     `envconfig:"ENABLE"`
+			MaxAgeSeconds    int      `envconfig:"MAX_AGE_SECONDS"`
 		} `envconfig:"CORS"`
 		RateLimiter struct {
 			Enable        bool `envconfig:"ENABLE"`
 			MaxRequests   int  `envconfig:"MAX_REQUESTS"`
 			WindowSeconds int  `envconfig:"WINDOW_SECONDS"`
 		} `envconfig:"RATE_LIMITER"`
+		APIKey string `envconfig:"API_KEY"`
 	} `envconfig:"APP"`
 
 	Cache struct {

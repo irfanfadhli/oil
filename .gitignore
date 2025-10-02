@@ -24,6 +24,9 @@ bin/
 # Disable Ignore docs
 #docs/
 
+# Ignore permission file
+permissions.json
+
 # Ignore coverage reports
 *.log
 *.log.*

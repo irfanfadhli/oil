@@ -17,5 +17,5 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	logger.SetLogLevel(cfg)
 
 	handler := di.InitializeService()
-	handler.Adaptor().ServeHTTP(w, r)
+	handler.ServeHTTP(w, r)
 }

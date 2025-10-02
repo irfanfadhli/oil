@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) DEFAULT NULL,
-    level CHAR(1) NOT NULL,
+    level VARCHAR(12) NOT NULL,
     google_id VARCHAR(255) UNIQUE,
     full_name VARCHAR(255) DEFAULT NULL,
     profile_image TEXT DEFAULT NULL,
