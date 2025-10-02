@@ -37,6 +37,15 @@ jobs:
           go generate -skip="mockgen" ./...
           go generate -run="mockgen" ./...
 
+      - name: Initialize permissions.json
+        run: |
+            cat <<EOF > permissions/permissions.json
+            {
+              "skip": true,
+              "endpoints": []
+            }
+            EOF 
+
       - name: Create tmp directory
         run: mkdir -p tmp
 

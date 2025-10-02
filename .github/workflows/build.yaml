@@ -33,6 +33,15 @@ jobs:
       - name: Generate code
         run: go generate -skip="mockgen" ./...
 
+      - name: Initialize permissions.json
+        run: |
+          cat <<EOF > permissions/permissions.json
+          {
+            "skip": true,
+            "endpoints": []
+          }
+          EOF 
+
       - name: Build binary
         run: make build
 
