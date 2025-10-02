@@ -10,6 +10,7 @@ import (
 	"oil/infras/postgres"
 	"oil/infras/redis"
 	todoHandler "oil/internal/handlers/todo"
+	"oil/permissions"
 	"oil/shared/cache"
 	"oil/transport/http"
 	"oil/transport/http/middleware"
@@ -27,6 +28,7 @@ import (
 
 var configurations = wire.NewSet(
 	config.Get,
+	permissions.Get,
 )
 
 var infrastructures = wire.NewSet(

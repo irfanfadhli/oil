@@ -32,21 +32,19 @@ func New(config *config.Config) Otel {
 
 	endpoint := config.External.Otel.Endpoint
 
-	// Konfigurasi OTLP exporter
 	exporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithEndpoint(endpoint),
-		otlptracegrpc.WithTLSCredentials(insecure.NewCredentials()), // Gunakan WithTLSCredentials dengan insecure.NewCredentials jika endpoint tidak menggunakan TLS
+		otlptracegrpc.WithTLSCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create OTLP exporter")
 	}
 
-	// Konfigurasi TracerProvider
 	traceProvider := trace.NewTracerProvider(
 		trace.WithBatcher(exporter),
 		trace.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String(config.App.Name), // Ganti dengan nama service Anda
+			semconv.ServiceNameKey.String(config.App.Name),
 		)),
 	)
 

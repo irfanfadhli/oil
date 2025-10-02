@@ -1,6 +1,7 @@
 package todo
 
 import (
+	"net/http"
 	"oil/infras/otel"
 	"oil/internal/domains/todo/model"
 	"oil/internal/domains/todo/model/dto"
@@ -12,7 +13,8 @@ import (
 	"oil/transport/http/middleware"
 	"oil/transport/http/response"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/go-chi/chi/v5"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,13 +32,13 @@ func New(service service.Todo, middleware middleware.AuthRole, otel otel.Otel) H
 	}
 }
 
-func (handler *Handler) Router(r fiber.Router) {
-	r.Route("/todos", func(r fiber.Router) {
-		r.Post("/", handler.middleware.Auth(), handler.middleware.RequireUser(), handler.CreateTodo)
-		r.Get("/", handler.GetTodos)
-		r.Get("/:id", handler.GetTodoByID)
-		r.Patch("/:id", handler.middleware.Auth(), handler.middleware.RequireUser(), handler.UpdateTodo)
-		r.Delete("/:id", handler.middleware.Auth(), handler.middleware.RequireSuperAdmin(), handler.DeleteTodo)
+func (handler *Handler) Router(router chi.Router) {
+	router.Route("/todos", func(routerGroup chi.Router) {
+		routerGroup.Post("/", handler.CreateTodo)
+		routerGroup.Get("/", handler.GetTodos)
+		routerGroup.Get("/{id}", handler.GetTodoByID)
+		routerGroup.Patch("/{id}", handler.UpdateTodo)
+		routerGroup.Delete("/{id}", handler.DeleteTodo)
 	})
 }
 
@@ -52,30 +54,34 @@ func (handler *Handler) Router(r fiber.Router) {
 // @Failure 500 {object} response.Error
 // @Router /v1/todos [post]
 // @Security BearerAuth
-func (handler *Handler) CreateTodo(c *fiber.Ctx) error {
-	ctx, scope := handler.otel.NewScope(c.UserContext(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".CreateTodo")
+func (handler *Handler) CreateTodo(writer http.ResponseWriter, request *http.Request) {
+	ctx, scope := handler.otel.NewScope(request.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".CreateTodo")
 	defer scope.End()
 
 	req := dto.CreateTodoRequest{}
 
-	if err := validator.Validate(c, &req); err != nil {
+	if err := validator.Validate(request.Body, &req); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to validate request body")
 
-		return response.WithError(c, err)
+		response.WithError(writer, err)
+
+		return
 	}
 
 	if err := handler.service.Create(ctx, req); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to create todo")
 
-		return response.WithError(c, err)
+		response.WithError(writer, err)
+
+		return
 	}
 
 	user, _ := ctx.Value(constant.ContextKeyUserID).(string)
 	scope.AddEvent("Todo created successfully by user " + user)
 
-	return response.WithMessage(c, fiber.StatusCreated, "Todo created successfully")
+	response.WithMessage(writer, http.StatusCreated, "Todo created successfully")
 }
 
 // GetTodos retrieves all todo items based on query parameters.
@@ -90,14 +96,14 @@ func (handler *Handler) CreateTodo(c *fiber.Ctx) error {
 // @Failure 400 {object} response.Error
 // @Failure 500 {object} response.Error
 // @Router /v1/todos [get]
-func (handler *Handler) GetTodos(c *fiber.Ctx) error {
-	ctx, scope := handler.otel.NewScope(c.UserContext(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".GetTodos")
+func (handler *Handler) GetTodos(w http.ResponseWriter, r *http.Request) {
+	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".GetTodos")
 	defer scope.End()
 
 	queryParams := gDto.QueryParams{}
-	queryParams.FromRequest(c, true)
+	queryParams.FromRequest(r, true)
 
-	title := c.Query(model.FieldTitle)
+	title := r.URL.Query().Get(model.FieldTitle)
 
 	filterGroup := gDto.FilterGroup{
 		Operator: gDto.FilterGroupOperatorAnd,
@@ -111,7 +117,7 @@ func (handler *Handler) GetTodos(c *fiber.Ctx) error {
 		},
 	}
 
-	if complete := shared.ConvertStringToBool(c.Query(model.FieldCompleted)); complete != nil {
+	if complete := shared.ConvertStringToBool(r.URL.Query().Get(model.FieldCompleted)); complete != nil {
 		filterGroup.Filters = append(filterGroup.Filters, gDto.Filter{
 			Field:    model.FieldCompleted,
 			Operator: gDto.FilterOperatorEq,
@@ -125,12 +131,14 @@ func (handler *Handler) GetTodos(c *fiber.Ctx) error {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to get todos")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	scope.AddEvent("Todos retrieved successfully")
 
-	return response.WithJSON(c, fiber.StatusOK, todos)
+	response.WithJSON(w, http.StatusOK, todos)
 }
 
 // GetTodoByID retrieves a todo item by its ID.
@@ -145,23 +153,25 @@ func (handler *Handler) GetTodos(c *fiber.Ctx) error {
 // @Failure 404 {object} response.Error
 // @Failure 500 {object} response.Error
 // @Router /v1/todos/{id} [get]
-func (handler *Handler) GetTodoByID(c *fiber.Ctx) error {
-	ctx, scope := handler.otel.NewScope(c.UserContext(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".GetTodoByID")
+func (handler *Handler) GetTodoByID(w http.ResponseWriter, r *http.Request) {
+	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".GetTodoByID")
 	defer scope.End()
 
-	id := c.Params(model.FieldID)
+	id := chi.URLParam(r, constant.RequestParamID)
 
 	todo, err := handler.service.Get(ctx, id)
 	if err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to get todo by ID")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	scope.AddEvent("Todo retrieved successfully")
 
-	return response.WithJSON(c, fiber.StatusOK, todo)
+	response.WithJSON(w, http.StatusOK, todo)
 }
 
 // UpdateTodo updates an existing todo item by its ID.
@@ -178,31 +188,35 @@ func (handler *Handler) GetTodoByID(c *fiber.Ctx) error {
 // @Failure 500 {object} response.Error
 // @Router /v1/todos/{id} [patch]
 // @Security BearerAuth
-func (handler *Handler) UpdateTodo(c *fiber.Ctx) error {
-	ctx, scope := handler.otel.NewScope(c.UserContext(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".UpdateTodo")
+func (handler *Handler) UpdateTodo(w http.ResponseWriter, r *http.Request) {
+	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".UpdateTodo")
 	defer scope.End()
 
-	id := c.Params(model.FieldID)
+	id := chi.URLParam(r, constant.RequestParamID)
 
 	req := dto.UpdateTodoRequest{}
-	if err := validator.Validate(c, &req); err != nil {
+	if err := validator.Validate(r.Body, &req); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to validate request body")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	if err := handler.service.Update(ctx, req, id); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to update todo")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	user, _ := ctx.Value(constant.ContextKeyUserID).(string)
 	scope.AddEvent("Todo updated successfully by user " + user)
 
-	return response.WithMessage(c, fiber.StatusOK, "Todo updated successfully")
+	response.WithMessage(w, http.StatusOK, "Todo updated successfully")
 }
 
 // DeleteTodo deletes a todo item by its ID.
@@ -218,21 +232,23 @@ func (handler *Handler) UpdateTodo(c *fiber.Ctx) error {
 // @Failure 500 {object} response.Error
 // @Router /v1/todos/{id} [delete]
 // @Security BearerAuth
-func (handler *Handler) DeleteTodo(c *fiber.Ctx) error {
-	ctx, scope := handler.otel.NewScope(c.UserContext(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".DeleteTodo")
+func (handler *Handler) DeleteTodo(w http.ResponseWriter, r *http.Request) {
+	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".DeleteTodo")
 	defer scope.End()
 
-	id := c.Params(model.FieldID)
+	id := chi.URLParam(r, constant.RequestParamID)
 
 	if err := handler.service.Delete(ctx, id); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to delete todo")
 
-		return response.WithError(c, err)
+		response.WithError(w, err)
+
+		return
 	}
 
 	user, _ := ctx.Value(constant.ContextKeyUserID).(string)
 	scope.AddEvent("Todo deleted successfully by user " + user)
 
-	return response.WithMessage(c, fiber.StatusOK, "Todo deleted successfully")
+	response.WithMessage(w, http.StatusOK, "Todo deleted successfully")
 }

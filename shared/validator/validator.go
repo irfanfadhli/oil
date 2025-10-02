@@ -1,12 +1,14 @@
 package validator
 
 import (
+	"encoding/json"
 	"fmt"
 	val "github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"io"
 	"mime/multipart"
 	"oil/config"
 	"oil/shared/base64"
+	"oil/shared/constant"
 	"oil/shared/failure"
 	"reflect"
 	"slices"
@@ -20,7 +22,7 @@ func registerMimetypeValidation(field val.FieldLevel) bool {
 	var contentType string
 
 	if file, ok := field.Field().Interface().(multipart.FileHeader); ok {
-		contentType = file.Header.Get("Content-Type")
+		contentType = file.Header.Get(constant.RequestHeaderContentType)
 	} else if str, ok := field.Field().Interface().(string); ok {
 		contentType = base64.GetContentType(str)
 
@@ -57,7 +59,7 @@ func init() {
 	cfg := config.Get()
 
 	validate = val.New(val.WithRequiredStructEnabled())
-	err := validate.RegisterValidation("yms", func(fl val.FieldLevel) bool {
+	err := validate.RegisterValidation("oil", func(fl val.FieldLevel) bool {
 		method := fl.Field().MethodByName("Validate")
 		if method.IsValid() {
 			result := method.Call([]reflect.Value{reflect.ValueOf(cfg)})
@@ -97,8 +99,9 @@ func init() {
 // on the struct using the validator package. If the struct is invalid according to the
 // validation rules, an error is returned. Otherwise, nil is returned.
 // https://github.com/go-playground/validator
-func Validate[T any](ctx *fiber.Ctx, data *T) error {
-	err := ctx.BodyParser(data)
+func Validate[T any](r io.Reader, data *T) error {
+	decoder := json.NewDecoder(r)
+	err := decoder.Decode(data)
 
 	if err != nil {
 		return failure.BadRequest(fmt.Errorf("failed to decode request body: %w", err)) //nolint:wrapcheck

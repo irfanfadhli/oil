@@ -1,14 +1,13 @@
 package dto_test
 
 import (
+	"net/http"
+	"net/url"
 	"oil/shared/constant"
 	"oil/shared/dto"
 	"oil/shared/model"
 	"testing"
 	"time"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/valyala/fasthttp"
 )
 
 func TestMetadata_FromModel(t *testing.T) {
@@ -58,15 +57,15 @@ func TestQueryParams_FromRequest(t *testing.T) {
 			queryParams: map[string]string{
 				"page":     "2",
 				"limit":    "20",
-				"sort_by":  "ASC", // Bug: sortDir reads from sort_by param
+				"sort_by":  "name",
 				"sort_dir": "ASC",
 			},
 			defaultRequest: false,
 			expected: dto.QueryParams{
 				Page:    2,
 				Limit:   20,
-				SortBy:  "ASC", // This will be set to "ASC" due to the bug
-				SortDir: "ASC", // This will be set to "ASC" because it reads from sort_by
+				SortBy:  "name",
+				SortDir: "ASC",
 			},
 		},
 		{
@@ -174,25 +173,29 @@ func TestQueryParams_FromRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a new Fiber app for testing
-			app := fiber.New()
-
-			// Create a mock HTTP request context
-			reqCtx := &fasthttp.RequestCtx{}
-			reqCtx.Request.SetRequestURI("http://example.com/test")
-
-			// Add query parameters
-			for key, value := range tt.queryParams {
-				reqCtx.Request.URI().QueryArgs().Add(key, value)
+			// Create a URL with query parameters
+			baseURL := "http://example.com/test"
+			u, err := url.Parse(baseURL)
+			if err != nil {
+				t.Fatalf("failed to parse URL: %v", err)
 			}
 
-			// Create Fiber context
-			ctx := app.AcquireCtx(reqCtx)
-			defer app.ReleaseCtx(ctx)
+			// Add query parameters
+			query := u.Query()
+			for key, value := range tt.queryParams {
+				query.Set(key, value)
+			}
+			u.RawQuery = query.Encode()
+
+			// Create HTTP request
+			req, err := http.NewRequest("GET", u.String(), nil)
+			if err != nil {
+				t.Fatalf("failed to create request: %v", err)
+			}
 
 			// Test the method
 			queryParams := &dto.QueryParams{}
-			queryParams.FromRequest(ctx, tt.defaultRequest)
+			queryParams.FromRequest(req, tt.defaultRequest)
 
 			// Verify results
 			if queryParams.Page != tt.expected.Page {

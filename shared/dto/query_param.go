@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"net/http"
 	"oil/shared/constant"
 	"strconv"
 )
@@ -27,24 +27,26 @@ type QueryParams struct {
 //
 // This will set default values for Page, Limit, SortBy, and SortDir if they are not provided in the request.
 // If `defaultRequest` is false, it will only populate the fields that are present in the request.
-func (q *QueryParams) FromRequest(ctx *fiber.Ctx, defaultRequest bool) {
-	if page := ctx.Query(constant.RequestParamPage); page != "" {
+func (q *QueryParams) FromRequest(r *http.Request, defaultRequest bool) {
+	queryParams := r.URL.Query()
+
+	if page := queryParams.Get(constant.RequestParamPage); page != "" {
 		if pageInt, err := strconv.Atoi(page); err == nil && pageInt > 0 {
 			q.Page = pageInt
 		}
 	}
 
-	if limit := ctx.Query(constant.RequestParamLimit); limit != "" {
+	if limit := queryParams.Get(constant.RequestParamLimit); limit != "" {
 		if limitInt, err := strconv.Atoi(limit); err == nil && limitInt > 0 {
 			q.Limit = limitInt
 		}
 	}
 
-	if sortBy := ctx.Query(constant.RequestParamSortBy); sortBy != "" {
+	if sortBy := queryParams.Get(constant.RequestParamSortBy); sortBy != "" {
 		q.SortBy = sortBy
 	}
 
-	if sortDir := ctx.Query(constant.RequestParamSortBy); sortDir == SortDirAsc || sortDir == SortDirDesc {
+	if sortDir := queryParams.Get(constant.RequestParamSortDir); sortDir == SortDirAsc || sortDir == SortDirDesc {
 		q.SortDir = sortDir
 	}
 

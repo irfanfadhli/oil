@@ -3,27 +3,33 @@ package middleware
 import (
 	"context"
 	"errors"
+	"net/http"
+	"oil/config"
 	"oil/infras/jwt"
 	"oil/infras/otel"
+	"oil/permissions"
 	"oil/shared/constant"
 	"oil/shared/failure"
 	"oil/transport/http/response"
+	"slices"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/go-chi/chi/v5"
+
 	"github.com/rs/zerolog/log"
 )
 
+type SkipAuthKey string
+type PermissionsKey string
+
 // Auth defines the interface for authentication middleware
 type Auth interface {
-	Auth() fiber.Handler
+	Auth(http.Handler) http.Handler
+	APIKey(http.Handler) http.Handler
 }
 
 // Role defines the interface for role-based access control middleware
 type Role interface {
-	RBAC(requiredRoles ...string) fiber.Handler
-	RequireSuperAdmin() fiber.Handler
-	RequireAdmin() fiber.Handler
-	RequireUser() fiber.Handler
+	RBAC(http.Handler) http.Handler
 }
 
 // AuthRole combines all middleware interfaces
@@ -36,75 +42,85 @@ type AuthRole interface {
 type authRoleImpl struct {
 	jwtService jwt.JWT
 	otel       otel.Otel
+	permission *permissions.PermissionData
+	cfg        *config.Config
 }
 
 // NewAuthRoleMiddleware creates a new middleware instance
-func NewAuthRoleMiddleware(jwtService jwt.JWT, otel otel.Otel) AuthRole {
+func NewAuthRoleMiddleware(jwtService jwt.JWT, otel otel.Otel, permissions *permissions.PermissionData, cfg *config.Config) AuthRole {
 	return &authRoleImpl{
 		jwtService: jwtService,
 		otel:       otel,
+		permission: permissions,
+		cfg:        cfg,
 	}
 }
 
 // Auth validates JWT tokens
 // Requires valid authentication for all requests
-func (m *authRoleImpl) Auth() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		ctx, scope := m.otel.NewScope(c.Context(), constant.OtelHandlerScopeName, "auth.middleware")
-		defer scope.End()
+func (m *authRoleImpl) Auth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctx := request.Context()
+		_, scope := m.otel.NewScope(ctx, constant.OtelHandlerScopeName, "auth.middleware")
+
+		skip, _ := request.Context().Value(SkipAuthKey("skip")).(bool)
+
+		if skip {
+			scope.End()
+			next.ServeHTTP(writer, request)
+
+			return
+		}
+
+		// Check if this endpoint should skip authentication based on permissions config
+		if m.permission != nil {
+			rctx := chi.RouteContext(ctx)
+			method := request.Method
+			path := rctx.Routes.Find(chi.NewRouteContext(), method, request.URL.Path)
+			permission := m.permission.FindPermissions(path, method)
+
+			if permission.Skip {
+				scope.End()
+				next.ServeHTTP(writer, request)
+
+				return
+			}
+		}
+
+		rctx := chi.RouteContext(ctx)
+		method := request.Method
+		path := rctx.Routes.Find(chi.NewRouteContext(), method, request.URL.Path)
 
 		scope.SetAttributes(map[string]any{
 			"middleware.type": "auth",
-			"http.path":       c.Path(),
-			"http.method":     c.Method(),
+			"http.path":       path,
+			"http.method":     method,
 		})
 
-		authHeader := c.Get("Authorization")
+		authHeader := request.Header.Get(constant.RequestHeaderAuthorization)
 		if authHeader == "" {
-			scope.SetAttributes(map[string]any{
-				"auth.result": "failed",
-				"auth.reason": "missing_header",
-			})
+			err := failure.Unauthorized("Missing authorization header")
+			response.WithError(writer, err)
 
-			log.Warn().
-				Str("path", c.Path()).
-				Str("method", c.Method()).
-				Msg("Missing authorization header")
+			scope.TraceError(err)
+			scope.End()
 
-			return response.WithError(c, failure.Unauthorized("Missing authorization header"))
+			return
 		}
 
 		tokenString, err := jwt.ExtractTokenFromHeader(authHeader)
 		if err != nil {
-			scope.SetAttributes(map[string]any{
-				"auth.result": "failed",
-				"auth.reason": "invalid_header_format",
-			})
-			scope.TraceIfError(err)
+			err := failure.Unauthorized("Invalid authorization header format")
+			response.WithError(writer, err)
 
-			log.Warn().
-				Err(err).
-				Str("path", c.Path()).
-				Str("method", c.Method()).
-				Msg("Invalid authorization header format")
+			scope.TraceError(err)
+			scope.End()
 
-			return response.WithError(c, failure.Unauthorized("Invalid authorization header format"))
+			return
 		}
 
 		claims, err := m.jwtService.ValidateToken(ctx, tokenString, jwt.AccessToken)
 		if err != nil {
-			scope.SetAttributes(map[string]any{
-				"auth.result": "failed",
-				"auth.reason": "token_validation_failed",
-			})
-			scope.TraceIfError(err)
-
-			log.Warn().
-				Err(err).
-				Str("path", c.Path()).
-				Str("method", c.Method()).
-				Msg("Invalid or expired token")
-
 			var message string
 
 			switch {
@@ -118,124 +134,137 @@ func (m *authRoleImpl) Auth() fiber.Handler {
 				message = "Token validation failed"
 			}
 
-			return response.WithError(c, failure.Unauthorized(message))
+			err := failure.Unauthorized(message)
+			response.WithError(writer, err)
+
+			scope.TraceError(err)
+			scope.End()
+
+			return
 		}
 
 		// Validate that required claims are not empty
 		if claims.UserID == "" {
 			log.Error().Msg("JWT claims: UserID is empty")
 
-			return response.WithError(c, failure.Unauthorized("Invalid token claims"))
+			response.WithError(writer, failure.Unauthorized("Invalid token claims"))
 		}
 
 		if claims.Email == "" {
 			log.Error().Msg("JWT claims: Email is empty")
 
-			return response.WithError(c, failure.Unauthorized("Invalid token claims"))
+			response.WithError(writer, failure.Unauthorized("Invalid token claims"))
 		}
 
-		// Store user information in Go context
-		ctx = c.UserContext()
 		ctx = context.WithValue(ctx, constant.ContextKeyUserID, claims.UserID)
 		ctx = context.WithValue(ctx, constant.ContextKeyUserEmail, claims.Email)
 		ctx = context.WithValue(ctx, constant.ContextKeyUserRole, claims.Role)
 		ctx = context.WithValue(ctx, constant.ContextKeyTokenID, claims.TokenID)
-		c.SetUserContext(ctx)
 
-		// Also store in Fiber locals for backward compatibility
-		c.Locals(constant.ContextKeyUserID, claims.UserID)
-		c.Locals(constant.ContextKeyUserEmail, claims.Email)
-		c.Locals(constant.ContextKeyUserRole, claims.Role)
-		c.Locals(constant.ContextKeyTokenID, claims.TokenID)
+		scope.End()
 
-		scope.SetAttributes(map[string]any{
-			"auth.result":   "success",
-			"auth.user_id":  claims.UserID,
-			"auth.email":    claims.Email,
-			"auth.role":     claims.Role,
-			"auth.token_id": claims.TokenID,
-		})
-
-		return c.Next()
-	}
+		next.ServeHTTP(writer, request.WithContext(ctx))
+	})
 }
 
-// RBAC checks if user has required role(s)
+// RBAC checks if user has required role
 // Requires prior authentication via Auth middleware
-func (m *authRoleImpl) RBAC(requiredRoles ...string) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		_, scope := m.otel.NewScope(c.Context(), constant.OtelHandlerScopeName, "rbac.middleware")
-		defer scope.End()
+func (m *authRoleImpl) RBAC(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctx := request.Context()
+		_, scope := m.otel.NewScope(ctx, constant.OtelHandlerScopeName, "rbac.middleware")
 
-		scope.SetAttributes(map[string]any{
-			"middleware.type":     "rbac",
-			"rbac.required_roles": requiredRoles,
-			"http.path":           c.Path(),
-			"http.method":         c.Method(),
-		})
+		skip, _ := request.Context().Value(SkipAuthKey("skip")).(bool)
+		if skip {
+			scope.End()
+			next.ServeHTTP(writer, request)
 
-		userRole := c.UserContext().Value(constant.ContextKeyUserRole)
-		if userRole == nil {
-			// Fallback to Fiber locals for backward compatibility
-			userRole = c.Locals(constant.ContextKeyUserRole)
+			return
 		}
 
-		if userRole == nil {
-			scope.SetAttributes(map[string]any{
-				"rbac.result": "failed",
-				"rbac.reason": "no_user_role_in_context",
-			})
+		if m.permission == nil {
+			scope.End()
+			response.WithError(writer, failure.ForbiddenError)
 
-			log.Warn().
-				Str("path", c.Path()).
-				Str("method", c.Method()).
-				Msg("User role not found in context")
-
-			return response.WithError(c, failure.Unauthorized("User role not found"))
+			return
 		}
 
-		role, _ := userRole.(string)
-		scope.SetAttributes(map[string]any{
-			"rbac.user_role": role,
-		})
+		if m.permission.Skip {
+			scope.End()
+			next.ServeHTTP(writer, request)
 
-		for _, requiredRole := range requiredRoles {
-			if role == requiredRole {
+			return
+		}
+
+		rctx := chi.RouteContext(request.Context())
+		path := rctx.Routes.Find(chi.NewRouteContext(), request.Method, request.URL.Path)
+		permission := m.permission.FindPermissions(path, request.Method)
+
+		if permission.Skip {
+			scope.End()
+			next.ServeHTTP(writer, request)
+
+			return
+		}
+
+		// Get user role from context
+		userRole, _ := ctx.Value(constant.ContextKeyUserRole).(string)
+
+		// Check if user role is allowed (permissions field now contains roles)
+		if len(permission.Permissions) > 0 {
+			if !slices.Contains(permission.Permissions, userRole) {
+				err := failure.ForbiddenError
+				scope.TraceError(err)
 				scope.SetAttributes(map[string]any{
-					"rbac.result":       "success",
-					"rbac.matched_role": requiredRole,
+					"user_role":     userRole,
+					"allowed_roles": permission.Permissions,
+					"reason":        "role_not_allowed",
 				})
+				scope.End()
+				response.WithError(writer, err)
 
-				return c.Next()
+				return
 			}
 		}
 
-		scope.SetAttributes(map[string]any{
-			"rbac.result": "failed",
-			"rbac.reason": "insufficient_permissions",
-		})
-
-		log.Warn().
-			Str("user_role", role).
-			Strs("required_roles", requiredRoles).
-			Str("path", c.Path()).
-			Msg("Insufficient permissions")
-
-		return response.WithError(c, failure.Forbidden("Insufficient permissions"))
-	}
+		scope.End()
+		next.ServeHTTP(writer, request)
+	})
 }
 
-// RequireSuperAdmin is a convenience function for super admin only access
-func (m *authRoleImpl) RequireSuperAdmin() fiber.Handler {
-	return m.RBAC(constant.RoleSuperAdmin)
-}
+// APIKey for internal service-to-service authentication using API key
+func (m *authRoleImpl) APIKey(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctx := request.Context()
+		_, scope := m.otel.NewScope(ctx, constant.OtelHandlerScopeName, "api_key.middleware")
 
-// RequireAdmin is a convenience function for admin or super admin access
-func (m *authRoleImpl) RequireAdmin() fiber.Handler {
-	return m.RBAC(constant.RoleSuperAdmin, constant.RoleAdmin)
-}
+		ctx = context.WithValue(ctx, SkipAuthKey("skip"), false)
+		apiKey := request.Header.Get(constant.RequestHeaderAPIKey)
 
-// RequireUser is a convenience function for any authenticated user access
-func (m *authRoleImpl) RequireUser() fiber.Handler {
-	return m.RBAC(constant.RoleSuperAdmin, constant.RoleAdmin, constant.RoleUser)
+		if apiKey == "" {
+			scope.SetAttribute("http.source", "client")
+			scope.End()
+			next.ServeHTTP(writer, request.WithContext(ctx))
+
+			return
+		}
+
+		scope.SetAttribute("http.source", "internal")
+
+		if apiKey != m.cfg.App.APIKey {
+			err := failure.ForbiddenError
+
+			response.WithError(writer, failure.ForbiddenError)
+
+			scope.TraceError(err)
+			scope.End()
+
+			return
+		}
+
+		ctx = context.WithValue(ctx, SkipAuthKey("skip"), true)
+
+		scope.End()
+		next.ServeHTTP(writer, request.WithContext(ctx))
+	})
 }

@@ -1,17 +1,13 @@
 package middleware
 
 import (
-	"errors"
 	"fmt"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"net/http"
 	"oil/config"
 	"oil/infras/otel"
-	"oil/shared"
 	"oil/shared/cache"
-	"oil/shared/constant"
-	"oil/transport/http/response"
-	"strconv"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 const (
@@ -19,8 +15,8 @@ const (
 )
 
 type AppMiddleware interface {
-	Tracing(c *fiber.Ctx) error
-	RateLimit() fiber.Handler
+	Tracing(http.Handler) http.Handler
+	RateLimit() func(http.Handler) http.Handler
 }
 
 type appMiddleware struct {
@@ -37,93 +33,34 @@ func NewAppMiddleware(otel otel.Otel, config *config.Config, cache cache.RedisCa
 	}
 }
 
-func (a *appMiddleware) Tracing(c *fiber.Ctx) error {
-	spanName := fmt.Sprintf("%s %s", c.Method(), c.Path())
-	if c.Path() == "" {
-		spanName = fmt.Sprintf("%s %s", c.Method(), c.Route().Path)
-	}
+func (a *appMiddleware) Tracing(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctx := request.Context()
 
-	ctx, scope := a.otel.NewScope(c.UserContext(), otelHTTPScopeName, spanName)
-	defer scope.End()
+		rctx := chi.RouteContext(ctx)
+		method := request.Method
+		path := rctx.Routes.Find(chi.NewRouteContext(), method, request.URL.Path)
+		userAgent := a.getUA(request)
+		spanName := fmt.Sprintf("%s %s", method, path)
 
-	c.SetUserContext(ctx)
+		ctx, scope := a.otel.NewScope(ctx, otelHTTPScopeName, spanName)
+		defer scope.End()
 
-	scope.SetAttributes(map[string]any{
-		"app.name":        a.config.App.Name,
-		"http.path":       c.Path(),
-		"http.route":      c.Route().Path,
-		"http.method":     c.Method(),
-		"http.user_agent": c.Get(constant.ContextKeyUserAgent),
-		"http.host":       c.Hostname(),
-		"http.source":     c.IP(),
+		scope.SetAttributes(map[string]any{
+			"app.name":        a.config.App.Name,
+			"http.path":       path,
+			"http.route":      path,
+			"http.method":     method,
+			"http.user_agent": userAgent,
+			"http.host":       request.Host,
+			"http.source":     request.RemoteAddr,
+		})
+
+		ww := middleware.NewWrapResponseWriter(writer, request.ProtoMajor)
+		next.ServeHTTP(ww, request.WithContext(ctx))
+
+		scope.SetAttributes(map[string]any{
+			"http.status_code": ww.Status(),
+		})
 	})
-
-	err := c.Next()
-
-	scope.SetAttributes(map[string]any{
-		"http.status_code": c.Response().StatusCode(),
-	})
-
-	if err != nil {
-		scope.TraceError(err)
-	}
-
-	return err
-}
-
-const (
-	cacheKeyRateLimit = "limiter"
-)
-
-func (a *appMiddleware) RateLimit() fiber.Handler {
-	if !a.config.App.RateLimiter.Enable {
-		return func(c *fiber.Ctx) error {
-			return c.Next()
-		}
-	}
-
-	maxReqs := a.config.App.RateLimiter.MaxRequests
-	windowSecs := a.config.App.RateLimiter.WindowSeconds
-
-	return func(c *fiber.Ctx) error {
-		userAgent := a.getUA(c)
-		cacheKey := shared.BuildCacheKey(cacheKeyRateLimit, c.IP(), userAgent)
-
-		var count int
-		err := a.cache.Get(c.UserContext(), cacheKey, &count)
-
-		if err != nil {
-			if errors.Is(err, cache.Nil) {
-				count = 1
-			} else {
-				return c.Next()
-			}
-		} else {
-			count++
-		}
-
-		if count > maxReqs {
-			return response.WithRequestLimitExceeded(c)
-		}
-
-		err = a.cache.Save(c.UserContext(), cacheKey, count, windowSecs)
-		if err != nil {
-			return c.Next()
-		}
-
-		c.Set(constant.ContextKeyRateLimit, strconv.Itoa(maxReqs))
-		c.Set(constant.ContextKeyRateLimitRemaining, strconv.Itoa(max(0, maxReqs-count)))
-		c.Set(constant.ContextKeyRateLimitWindow, strconv.Itoa(windowSecs))
-
-		return c.Next()
-	}
-}
-
-func (a *appMiddleware) getUA(c *fiber.Ctx) string {
-	ua := c.Get(constant.ContextKeyUserAgent)
-	if ua == "" {
-		ua = "unknown"
-	}
-
-	return ua
 }
