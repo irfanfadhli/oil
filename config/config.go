@@ -47,6 +47,7 @@ type Config struct {
 				Port     string `envconfig:"PORT"`
 				Password string `envconfig:"PASSWORD"`
 				DB       int    `envconfig:"DB"`
+				TLS      bool   `envconfig:"TLS"`
 			} `envconfig:"PRIMARY"`
 		} `envconfig:"REDIS"`
 		TTL int `envconfig:"TTL"`
