@@ -10,7 +10,6 @@ import (
 	"oil/shared/constant"
 	gDto "oil/shared/dto"
 	"oil/shared/validator"
-	"oil/transport/http/middleware"
 	"oil/transport/http/response"
 
 	"github.com/go-chi/chi/v5"
@@ -19,16 +18,14 @@ import (
 )
 
 type Handler struct {
-	service    service.Todo
-	middleware middleware.AuthRole
-	otel       otel.Otel
+	service service.Todo
+	otel    otel.Otel
 }
 
-func New(service service.Todo, middleware middleware.AuthRole, otel otel.Otel) Handler {
+func New(service service.Todo, otel otel.Otel) Handler {
 	return Handler{
-		service:    service,
-		middleware: middleware,
-		otel:       otel,
+		service: service,
+		otel:    otel,
 	}
 }
 

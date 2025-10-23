@@ -278,8 +278,6 @@ func TestValidationErrorHandling(t *testing.T) {
 	if errorMsg == "" {
 		t.Error("expected non-empty error message")
 	}
-
-	t.Logf("Error message: %s", errorMsg)
 }
 
 // Test that the validator package initializes correctly
