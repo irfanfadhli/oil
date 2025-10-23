@@ -18,8 +18,6 @@ func TestTimezoneInit(t *testing.T) {
 	if loc == nil {
 		t.Error("GetLocation() returned nil")
 	}
-
-	t.Logf("Current timezone: %s", loc.String())
 }
 
 func TestTimezoneWithStandardLocation(t *testing.T) {
@@ -29,9 +27,6 @@ func TestTimezoneWithStandardLocation(t *testing.T) {
 	if appTime.Location() == nil {
 		t.Error("Expected converted time to have a location")
 	}
-
-	t.Logf("UTC time: %s", utcTime.Format("2006-01-02 15:04:05 MST"))
-	t.Logf("App time: %s", appTime.Format("2006-01-02 15:04:05 MST"))
 }
 
 func TestTimezoneFormat(t *testing.T) {
@@ -42,12 +37,12 @@ func TestTimezoneFormat(t *testing.T) {
 		t.Error("Format() returned empty string")
 	}
 
-	t.Logf("Formatted time: %s", formatted)
-
 	parsed, err := timezone.Parse("2006-01-02", "2024-01-01")
 	if err != nil {
 		t.Errorf("Parse() failed: %v", err)
 	}
 
-	t.Logf("Parsed time: %s", parsed.Format("2006-01-02 15:04:05 MST"))
+	if parsed == (time.Time{}) {
+		t.Error("Parse() returned a zero time")
+	}
 }

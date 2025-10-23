@@ -75,8 +75,8 @@ func TestQueryParams_FromRequest(t *testing.T) {
 			expected: dto.QueryParams{
 				Page:    constant.DefaultValuePage,
 				Limit:   constant.DefaultValueLimit,
-				SortBy:  constant.DefaultValueSortBy,
-				SortDir: constant.DefaultValueSortDir,
+				SortBy:  "",
+				SortDir: "",
 			},
 		},
 		{
@@ -99,8 +99,8 @@ func TestQueryParams_FromRequest(t *testing.T) {
 			expected: dto.QueryParams{
 				Page:    constant.DefaultValuePage, // Should use default
 				Limit:   constant.DefaultValueLimit,
-				SortBy:  constant.DefaultValueSortBy,
-				SortDir: constant.DefaultValueSortDir,
+				SortBy:  "",
+				SortDir: "",
 			},
 		},
 		{
@@ -112,8 +112,8 @@ func TestQueryParams_FromRequest(t *testing.T) {
 			expected: dto.QueryParams{
 				Page:    constant.DefaultValuePage, // Should use default
 				Limit:   constant.DefaultValueLimit,
-				SortBy:  constant.DefaultValueSortBy,
-				SortDir: constant.DefaultValueSortDir,
+				SortBy:  "",
+				SortDir: "",
 			},
 		},
 		{
@@ -125,8 +125,8 @@ func TestQueryParams_FromRequest(t *testing.T) {
 			expected: dto.QueryParams{
 				Page:    constant.DefaultValuePage, // Should use default
 				Limit:   constant.DefaultValueLimit,
-				SortBy:  constant.DefaultValueSortBy,
-				SortDir: constant.DefaultValueSortDir,
+				SortBy:  "",
+				SortDir: "",
 			},
 		},
 		{
@@ -138,8 +138,8 @@ func TestQueryParams_FromRequest(t *testing.T) {
 			expected: dto.QueryParams{
 				Page:    constant.DefaultValuePage,
 				Limit:   constant.DefaultValueLimit, // Should use default
-				SortBy:  constant.DefaultValueSortBy,
-				SortDir: constant.DefaultValueSortDir,
+				SortBy:  "",
+				SortDir: "",
 			},
 		},
 		{
@@ -151,8 +151,8 @@ func TestQueryParams_FromRequest(t *testing.T) {
 			expected: dto.QueryParams{
 				Page:    constant.DefaultValuePage,
 				Limit:   constant.DefaultValueLimit, // Should use default
-				SortBy:  constant.DefaultValueSortBy,
-				SortDir: constant.DefaultValueSortDir,
+				SortBy:  "",
+				SortDir: "",
 			},
 		},
 		{
@@ -166,7 +166,7 @@ func TestQueryParams_FromRequest(t *testing.T) {
 				Page:    3,
 				Limit:   constant.DefaultValueLimit, // Should use default
 				SortBy:  "email",
-				SortDir: constant.DefaultValueSortDir, // Should use default
+				SortDir: "", // Empty when not provided
 			},
 		},
 	}

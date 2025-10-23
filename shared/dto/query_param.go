@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"oil/shared/constant"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -46,8 +47,8 @@ func (q *QueryParams) FromRequest(r *http.Request, defaultRequest bool) {
 		q.SortBy = sortBy
 	}
 
-	if sortDir := queryParams.Get(constant.RequestParamSortDir); sortDir == SortDirAsc || sortDir == SortDirDesc {
-		q.SortDir = sortDir
+	if sortDir := queryParams.Get(constant.RequestParamSortDir); strings.ToUpper(sortDir) == SortDirAsc || strings.ToUpper(sortDir) == SortDirDesc {
+		q.SortDir = strings.ToUpper(sortDir)
 	}
 
 	if defaultRequest {
@@ -57,14 +58,6 @@ func (q *QueryParams) FromRequest(r *http.Request, defaultRequest bool) {
 
 		if q.Limit == 0 {
 			q.Limit = constant.DefaultValueLimit
-		}
-
-		if q.SortBy == "" {
-			q.SortBy = constant.DefaultValueSortBy
-		}
-
-		if q.SortDir == "" {
-			q.SortDir = constant.DefaultValueSortDir
 		}
 	}
 }
