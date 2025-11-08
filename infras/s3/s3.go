@@ -116,6 +116,7 @@ func (svc *s3Impl) GetObjectNameFromURL(bucketName, url string) (objectName stri
 	}
 
 	apiEndpoint := svc.Config.External.S3.APIEndpoint
+
 	bucketURL := fmt.Sprintf("%s/%s/", apiEndpoint, bucketName)
 	if len(url) >= len(bucketURL) && url[:len(bucketURL)] == bucketURL {
 		return url[len(bucketURL):]

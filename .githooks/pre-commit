@@ -5,4 +5,5 @@ if git diff --cached --name-only | grep 'gen\.go'; then
   exit 1
 fi
 
+make lint
 exit 0

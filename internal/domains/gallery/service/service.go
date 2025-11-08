@@ -301,12 +301,14 @@ func (s *serviceImpl) DeleteImagesFromS3(ctx context.Context, req dto.DeleteImag
 	defer scope.TraceIfError(err)
 
 	bucketName := s.cfg.External.S3.BucketName
+
 	var deleteErrors []error
 
 	for _, imageURL := range req.ImageURLs {
 		objectName := s.s3.GetObjectNameFromURL(bucketName, imageURL)
 		if objectName == constant.Empty {
 			log.Warn().Str("url", imageURL).Msg("failed to extract object name from URL")
+
 			continue
 		}
 

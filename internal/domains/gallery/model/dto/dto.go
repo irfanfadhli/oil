@@ -12,9 +12,9 @@ import (
 )
 
 type CreateGalleryRequest struct {
-	Title       string   `json:"title" validate:"required,min=3,max=100"`
+	Title       string   `json:"title"       validate:"required,min=3,max=100"`
 	Description string   `json:"description"`
-	Images      []string `json:"images" validate:"required,dive,url"`
+	Images      []string `json:"images"      validate:"required,dive,url"`
 }
 
 func (c *CreateGalleryRequest) ToModel(user string) model.Gallery {
@@ -71,7 +71,7 @@ func (r *GetGalleriesResponse) FromModels(models []model.Gallery, totalData, lim
 }
 
 type UploadImageRequest struct {
-	Image     *multipart.FileHeader `json:"image"                swaggerignore:"true"                 validate:"required,mimetypes=image/png image/jpg image/jpeg"`
+	Image     *multipart.FileHeader `json:"image" swaggerignore:"true" validate:"required,mimetypes=image/png image/jpg image/jpeg"`
 	ImageFile multipart.File        `json:"-"`
 }
 
