@@ -89,10 +89,17 @@ type Config struct {
 	} `envconfig:"DB"`
 
 	External struct {
+		S3 struct {
+			APIEndpoint     string `envconfig:"API_ENDPOINT"`
+			AccessKeyID     string `envconfig:"ACCESS_KEY_ID"`
+			SecretAccessKey string `envconfig:"SECRET_ACCESS_KEY"`
+			BucketName      string `envconfig:"BUCKET_NAME"`
+			PublicDomain    string `envconfig:"PUBLIC_DOMAIN"`
+		} `envconfig:"S3"`
 		Otel struct {
 			Endpoint string `envconfig:"ENDPOINT"`
 		} `envconfig:"OTEL"`
-	}
+	} `envconfig:"EXTERNAL"`
 }
 
 var (

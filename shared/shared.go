@@ -133,3 +133,19 @@ func InvalidateCaches(ctx context.Context, cache cache.RedisCache, key string) {
 		log.Error().Err(err).Msgf("failed to clear cache for key: %s", key)
 	}
 }
+
+// GenerateUniqueFilename generates a unique filename with timestamp and original extension
+func GenerateUniqueFilename(originalFilename string) string {
+	timestamp := timezone.Now().Unix()
+	parts := strings.Split(originalFilename, ".")
+	extension := ""
+
+	if len(parts) > 1 {
+		extension = "." + parts[len(parts)-1]
+	}
+
+	hash := md5.Sum([]byte(fmt.Sprintf("%s_%d", originalFilename, timestamp)))
+	hashStr := hex.EncodeToString(hash[:])
+
+	return fmt.Sprintf("%d_%s%s", timestamp, hashStr[:8], extension)
+}

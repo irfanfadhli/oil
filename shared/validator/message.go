@@ -16,6 +16,9 @@ var (
 		"max":      "{field} must be less than or equal to {param}",
 		"min":      "{field} must be greater than or equal to {param}",
 		"email":    "{field} must be a valid email address",
+		"url":      "{field} must be a valid URL",
+		"dive":     "{field} contains a forbidden value",
+		"mimetype": "{field} must be one of the allowed file types: {param}",
 	}
 )
 

@@ -32,7 +32,8 @@ const (
 )
 
 const (
-	RequestParamID = "id"
+	RequestParamID   = "id"
+	RequestMaxMemory = 10 << 20 // 10 MB
 )
 
 const (
@@ -70,7 +71,7 @@ const (
 	OtelExternalScopeName   = "external"
 
 	OtelQueryAttributeKey = "query"
-	OtelMinioScopeName    = "minio"
+	OtelS3ScopeName       = "s3"
 )
 
 const (
@@ -90,6 +91,7 @@ const (
 	ContentTypeJSON              = "application/json"
 	ContentTypeFormURLEncoded    = "application/x-www-form-urlencoded"
 	ContentTypeMultipartFormData = "multipart/form-data"
+	FormFile                     = "file"
 )
 
 const (
