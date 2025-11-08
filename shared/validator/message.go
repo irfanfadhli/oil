@@ -16,6 +16,7 @@ var (
 		"max":      "{field} must be less than or equal to {param}",
 		"min":      "{field} must be greater than or equal to {param}",
 		"email":    "{field} must be a valid email address",
+		"url":      "{field} must be a valid URL",
 	}
 )
 
