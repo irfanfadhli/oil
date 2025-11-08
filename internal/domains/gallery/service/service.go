@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"oil/config"
 	"oil/infras/otel"
@@ -22,6 +23,10 @@ const (
 	cacheGetGallery    = "gallery:get"
 	cacheGetAllGallery = "gallery:get_all"
 	cacheCountGallery  = "gallery:count"
+)
+
+var (
+	ErrDeleteImagesFromS3 = errors.New("failed to delete images from S3")
 )
 
 type Gallery interface {
@@ -319,7 +324,7 @@ func (s *serviceImpl) DeleteImagesFromS3(ctx context.Context, req dto.DeleteImag
 	}
 
 	if len(deleteErrors) > 0 {
-		return fmt.Errorf("failed to delete %d images from S3", len(deleteErrors))
+		return fmt.Errorf("%w: %d images", ErrDeleteImagesFromS3, len(deleteErrors))
 	}
 
 	return nil
