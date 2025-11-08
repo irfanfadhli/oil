@@ -31,8 +31,8 @@ type Gallery interface {
 	Get(ctx context.Context, id string) (dto.GalleryResponse, error)
 	Update(ctx context.Context, req dto.UpdateGalleryRequest, id string) error
 	Delete(ctx context.Context, id string) error
-	UploadImage(ctx context.Context, file []byte, fileName, contentType string) (dto.UploadImageResponse, error)
-	DeleteImagesFromS3(ctx context.Context, imageURLs []string) error
+	UploadImage(ctx context.Context, req dto.UploadImageRequest) (dto.UploadImageResponse, error)
+	DeleteImagesFromS3(ctx context.Context, req dto.DeleteImagesRequest) error
 }
 
 type serviceImpl struct {
@@ -264,7 +264,10 @@ func (s *serviceImpl) Delete(ctx context.Context, id string) (err error) {
 		shared.InvalidateCaches(c, s.cache, cacheCountGallery)
 
 		if len(gallery.Images) > 0 {
-			if err := s.DeleteImagesFromS3(c, gallery.Images); err != nil {
+			deleteReq := dto.DeleteImagesRequest{
+				ImageURLs: gallery.Images,
+			}
+			if err := s.DeleteImagesFromS3(c, deleteReq); err != nil {
 				log.Error().Err(err).Msg("failed to delete images from S3")
 			}
 		}
@@ -273,26 +276,26 @@ func (s *serviceImpl) Delete(ctx context.Context, id string) (err error) {
 	return nil
 }
 
-func (s *serviceImpl) UploadImage(ctx context.Context, file []byte, fileName, contentType string) (res dto.UploadImageResponse, err error) {
+func (s *serviceImpl) UploadImage(ctx context.Context, req dto.UploadImageRequest) (res dto.UploadImageResponse, err error) {
 	ctx, scope := s.otel.NewScope(ctx, constant.OtelServiceScopeName, constant.OtelServiceScopeName+".UploadImage")
 	defer scope.End()
 	defer scope.TraceIfError(err)
 
 	bucketName := s.cfg.External.S3.BucketName
 
-	url, err := s.s3.UploadFileBytes(ctx, bucketName, model.EntityName, fileName, contentType, file)
+	url, err := s.s3.UploadFile(ctx, bucketName, model.EntityName, req.ImageFile, req.Image, req.Image.Filename)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to upload file to S3")
 
 		return res, fmt.Errorf("failed to upload file to S3: %w", err)
 	}
 
-	res.FromModel(url, fileName)
+	res.FromModel(url, req.Image.Filename)
 
 	return res, nil
 }
 
-func (s *serviceImpl) DeleteImagesFromS3(ctx context.Context, imageURLs []string) (err error) {
+func (s *serviceImpl) DeleteImagesFromS3(ctx context.Context, req dto.DeleteImagesRequest) (err error) {
 	ctx, scope := s.otel.NewScope(ctx, constant.OtelServiceScopeName, constant.OtelServiceScopeName+".DeleteImagesFromS3")
 	defer scope.End()
 	defer scope.TraceIfError(err)
@@ -300,7 +303,7 @@ func (s *serviceImpl) DeleteImagesFromS3(ctx context.Context, imageURLs []string
 	bucketName := s.cfg.External.S3.BucketName
 	var deleteErrors []error
 
-	for _, imageURL := range imageURLs {
+	for _, imageURL := range req.ImageURLs {
 		objectName := s.s3.GetObjectNameFromURL(bucketName, imageURL)
 		if objectName == constant.Empty {
 			log.Warn().Str("url", imageURL).Msg("failed to extract object name from URL")

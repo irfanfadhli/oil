@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"mime/multipart"
 	"oil/internal/domains/gallery/model"
 	"oil/shared"
 	gDto "oil/shared/dto"
@@ -69,6 +70,11 @@ func (r *GetGalleriesResponse) FromModels(models []model.Gallery, totalData, lim
 	}
 }
 
+type UploadImageRequest struct {
+	Image     *multipart.FileHeader `json:"image"                swaggerignore:"true"                 validate:"required,mimetypes=image/png image/jpg image/jpeg"`
+	ImageFile multipart.File        `json:"-"`
+}
+
 type UploadImageResponse struct {
 	URL      string `json:"url"`
 	FileName string `json:"file_name"`
@@ -77,12 +83,6 @@ type UploadImageResponse struct {
 func (r *UploadImageResponse) FromModel(url, fileName string) {
 	r.URL = url
 	r.FileName = fileName
-}
-
-type FileUpload struct {
-	Data        []byte
-	FileName    string
-	ContentType string
 }
 
 type DeleteImagesRequest struct {

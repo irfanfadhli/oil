@@ -1,14 +1,12 @@
 package gallery
 
 import (
-	"io"
 	"net/http"
 	"oil/infras/otel"
 	"oil/infras/s3"
 	"oil/internal/domains/gallery/model"
 	"oil/internal/domains/gallery/model/dto"
 	"oil/internal/domains/gallery/service"
-	"oil/shared"
 	"oil/shared/constant"
 	gDto "oil/shared/dto"
 	"oil/shared/validator"
@@ -293,20 +291,12 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	fileData, err := io.ReadAll(file)
-	if err != nil {
-		scope.TraceError(err)
-		log.Error().Err(err).Msg("failed to read file data")
-
-		response.WithError(w, err)
-
-		return
+	req := dto.UploadImageRequest{
+		Image:     fileHeader,
+		ImageFile: file,
 	}
 
-	fileName := shared.GenerateUniqueFilename(fileHeader.Filename)
-	contentType := fileHeader.Header.Get(constant.RequestHeaderContentType)
-
-	res, err := handler.service.UploadImage(ctx, fileData, fileName, contentType)
+	res, err := handler.service.UploadImage(ctx, req)
 	if err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to upload file")
@@ -348,7 +338,7 @@ func (handler *Handler) DeleteImages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := handler.service.DeleteImagesFromS3(ctx, req.ImageURLs); err != nil {
+	if err := handler.service.DeleteImagesFromS3(ctx, req); err != nil {
 		scope.TraceError(err)
 		log.Error().Err(err).Msg("failed to delete images from S3")
 
