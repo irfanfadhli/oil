@@ -267,6 +267,7 @@ func (handler *Handler) DeleteGallery(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} response.Error
 // @Failure 500 {object} response.Error
 // @Router /v1/galleries/upload [post]
+// @Security BearerAuth
 func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".UploadImage")
 	defer scope.End()
@@ -323,6 +324,7 @@ func (handler *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} response.Error
 // @Failure 500 {object} response.Error
 // @Router /v1/galleries/images [delete]
+// @Security BearerAuth
 func (handler *Handler) DeleteImages(w http.ResponseWriter, r *http.Request) {
 	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".DeleteImages")
 	defer scope.End()
