@@ -1,5 +1,7 @@
 package s3
 
+//go:generate go run go.uber.org/mock/mockgen -source=./s3.go -destination=./mocks/s3_mock.go -package=mocks
+
 import (
 	"bytes"
 	"context"
