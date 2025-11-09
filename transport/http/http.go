@@ -283,7 +283,7 @@ func (h *HTTP) logCORSConfigInfo() {
 
 // HealthCheck performs a health check on the server.
 // @Summary Health Check
-// @Description Health Check Endpoint
+// @Description Health Check APIEndpoint
 // @Tags service
 // @Produce json
 // @Accept json
