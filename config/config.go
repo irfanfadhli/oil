@@ -88,6 +88,16 @@ type Config struct {
 		} `envconfig:"POSTGRES"`
 	} `envconfig:"DB"`
 
+	Kafka struct {
+		SASL struct {
+			Username string `envconfig:"USERNAME"`
+			Password string `envconfig:"PASSWORD"`
+		} `envconfig:"SASL"`
+		Brokers       []string `envconfig:"BROKERS"`
+		ConsumerGroup string   `envconfig:"CONSUMER_GROUP"`
+		Topics        struct{} `envconfig:"TOPICS"`
+	} `envconfig:"KAFKA"`
+
 	External struct {
 		S3 struct {
 			APIEndpoint     string `envconfig:"API_ENDPOINT"`
