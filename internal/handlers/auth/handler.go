@@ -27,50 +27,9 @@ func New(service service.Auth, otel otel.Otel) Handler {
 
 func (handler *Handler) Router(r chi.Router) {
 	r.Route("/auth", func(r chi.Router) {
-		r.Post("/register", handler.Register)
 		r.Post("/login", handler.Login)
 		r.Post("/refresh-token", handler.RefreshToken)
 	})
-}
-
-// Register handles user registration
-// @Summary Register a new user
-// @Description Register a new user with the provided details.
-// @Tags Auth
-// @Accept json
-// @Produce json
-// @Param request body dto.RegisterRequest true "Register Request"
-// @Success 201 {object} response.Message "User registered successfully"
-// @Failure 400 {object} response.Error
-// @Failure 500 {object} response.Error
-// @Router /v1/auth/register [post]
-func (handler *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".Register")
-	defer scope.End()
-
-	req := dto.RegisterRequest{}
-
-	if err := validator.Validate(r.Body, &req); err != nil {
-		scope.TraceError(err)
-		log.Error().Err(err).Msg("failed to validate request body")
-
-		response.WithError(w, err)
-
-		return
-	}
-
-	if err := handler.service.Register(ctx, req); err != nil {
-		scope.TraceError(err)
-		log.Error().Err(err).Msg("failed to create todo")
-
-		response.WithError(w, err)
-
-		return
-	}
-
-	scope.AddEvent("User registered successfully")
-
-	response.WithMessage(w, http.StatusCreated, "User registered successfully")
 }
 
 // Login handles user login
