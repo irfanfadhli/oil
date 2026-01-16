@@ -1,73 +1,68 @@
 definitions:
-  dto.CreateGalleryRequest:
+  dto.BookingResponse:
     properties:
-      description:
+      booking_date:
         type: string
-      images:
-        items:
-          type: string
-        type: array
-      title:
-        maxLength: 100
-        minLength: 3
-        type: string
-    required:
-    - images
-    - title
-    type: object
-  dto.CreateTodoRequest:
-    properties:
-      description:
-        maxLength: 255
-        type: string
-      title:
-        maxLength: 255
-        type: string
-    required:
-    - description
-    - title
-    type: object
-  dto.DeleteImagesRequest:
-    properties:
-      image_urls:
-        items:
-          type: string
-        minItems: 1
-        type: array
-    required:
-    - image_urls
-    type: object
-  dto.GalleryResponse:
-    properties:
       created_at:
         type: string
       created_by:
         type: string
-      description:
+      end_time:
+        type: string
+      guest_email:
+        type: string
+      guest_name:
+        type: string
+      guest_phone:
         type: string
       id:
         type: string
-      images:
-        items:
-          type: string
-        type: array
       modified_at:
         type: string
       modified_by:
         type: string
-      title:
+      purpose:
+        type: string
+      room_id:
+        type: string
+      start_time:
+        type: string
+      status:
         type: string
     type: object
-  dto.GetGalleriesResponse:
+  dto.CreateBookingRequest:
     properties:
-      galleries:
-        items:
-          $ref: '#/definitions/dto.GalleryResponse'
-        type: array
-      total_data:
-        type: integer
-      total_page:
-        type: integer
+      booking_date:
+        type: string
+      end_time:
+        type: string
+      guest_email:
+        maxLength: 100
+        type: string
+      guest_name:
+        maxLength: 100
+        type: string
+      guest_phone:
+        maxLength: 20
+        type: string
+      purpose:
+        type: string
+      room_id:
+        type: string
+      start_time:
+        type: string
+      status:
+        enum:
+        - pending
+        - confirmed
+        - cancelled
+        type: string
+    required:
+    - booking_date
+    - end_time
+    - guest_name
+    - room_id
+    - start_time
     type: object
   dto.LoginRequest:
     properties:
@@ -113,74 +108,64 @@ definitions:
     - email
     - password
     type: object
-  dto.TodoResponse:
+  dto.RoomResponse:
     properties:
-      completed:
+      active:
         type: boolean
+      capacity:
+        type: integer
       created_at:
         type: string
       created_by:
         type: string
-      description:
-        type: string
       id:
+        type: string
+      image:
+        type: string
+      location:
         type: string
       modified_at:
         type: string
       modified_by:
         type: string
-      title:
+      name:
         type: string
     type: object
-  dto.UpdateGalleryRequest:
+  dto.UpdateBookingRequest:
     properties:
-      description:
+      booking_date:
         type: string
-      images:
-        items:
-          type: string
-        type: array
-      title:
+      end_time:
+        type: string
+      guest_email:
         maxLength: 100
-        minLength: 3
+        type: string
+      guest_name:
+        maxLength: 100
+        type: string
+      guest_phone:
+        maxLength: 20
+        type: string
+      purpose:
+        type: string
+      start_time:
+        type: string
+      status:
+        enum:
+        - pending
+        - confirmed
+        - cancelled
         type: string
     type: object
-  dto.UpdateTodoRequest:
+  response.Data-dto_BookingResponse:
     properties:
-      completed:
-        type: boolean
-      description:
-        maxLength: 255
-        type: string
-      title:
-        maxLength: 255
-        type: string
+      data:
+        $ref: '#/definitions/dto.BookingResponse'
     type: object
-  dto.UploadImageResponse:
+  response.Data-dto_RoomResponse:
     properties:
-      file_name:
-        type: string
-      url:
-        type: string
-    type: object
-  model.Todo:
-    properties:
-      completed:
-        type: boolean
-      created_at:
-        type: string
-      createdBy:
-        type: string
-      description:
-        type: string
-      id:
-        type: string
-      modified_at:
-        type: string
-      modifiedBy:
-        type: string
-      title:
-        type: string
+      data:
+        $ref: '#/definitions/dto.RoomResponse'
     type: object
   response.Error:
     properties:
@@ -300,27 +285,46 @@ paths:
       summary: Register a new user
       tags:
       - Auth
-  /v1/galleries:
+  /v1/bookings:
     get:
       consumes:
       - application/json
-      description: Retrieve all galleries with optional filtering and pagination.
+      description: Retrieve all bookings with optional filtering and pagination.
       parameters:
-      - description: Filter by title
-        in: query
-        name: title
+      - in: query
+        name: limit
+        type: integer
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: sort_by
         type: string
-      - description: Filter by description
+      - enum:
+        - ASC
+        - DESC
         in: query
-        name: description
+        name: sort_dir
+        type: string
+      - description: Filter by room ID
+        in: query
+        name: room_id
+        type: string
+      - description: Filter by status (pending, confirmed, cancelled)
+        in: query
+        name: status
+        type: string
+      - description: Filter by booking date (YYYY-MM-DD)
+        in: query
+        name: booking_date
         type: string
       produces:
       - application/json
       responses:
         "200":
-          description: List of galleries
+          description: List of bookings
           schema:
-            $ref: '#/definitions/dto.GetGalleriesResponse'
+            $ref: '#/definitions/response.Data-dto_BookingResponse'
         "400":
           description: Bad Request
           schema:
@@ -329,25 +333,25 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Error'
-      summary: Get all galleries
+      summary: Get all bookings
       tags:
-      - Gallery
+      - Booking
     post:
       consumes:
       - application/json
-      description: Create a new gallery with the provided details.
+      description: Create a new room booking with the provided details.
       parameters:
-      - description: Create Gallery Request
+      - description: Create Booking Request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.CreateGalleryRequest'
+          $ref: '#/definitions/dto.CreateBookingRequest'
       produces:
       - application/json
       responses:
         "201":
-          description: Gallery created successfully
+          description: Booking created successfully
           schema:
             $ref: '#/definitions/response.Message'
         "400":
@@ -360,16 +364,16 @@ paths:
             $ref: '#/definitions/response.Error'
       security:
       - BearerAuth: []
-      summary: Create a new gallery
+      summary: Create a new booking
       tags:
-      - Gallery
-  /v1/galleries/{id}:
+      - Booking
+  /v1/bookings/{id}:
     delete:
       consumes:
       - application/json
-      description: Delete a gallery using its unique identifier.
+      description: Delete/cancel a booking using its unique identifier.
       parameters:
-      - description: Gallery ID
+      - description: Booking ID
         in: path
         name: id
         required: true
@@ -378,7 +382,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Gallery deleted successfully
+          description: Booking deleted successfully
           schema:
             $ref: '#/definitions/response.Message'
         "400":
@@ -395,15 +399,15 @@ paths:
             $ref: '#/definitions/response.Error'
       security:
       - BearerAuth: []
-      summary: Delete a gallery by ID
+      summary: Delete a booking by ID
       tags:
-      - Gallery
+      - Booking
     get:
       consumes:
       - application/json
-      description: Retrieve a gallery by its unique identifier.
+      description: Retrieve a booking by its unique identifier.
       parameters:
-      - description: Gallery ID
+      - description: Booking ID
         in: path
         name: id
         required: true
@@ -412,9 +416,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Gallery details
+          description: Booking details
           schema:
-            $ref: '#/definitions/dto.GalleryResponse'
+            $ref: '#/definitions/response.Data-dto_BookingResponse'
         "400":
           description: Bad Request
           schema:
@@ -427,30 +431,30 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Error'
-      summary: Get a gallery by ID
+      summary: Get a booking by ID
       tags:
-      - Gallery
+      - Booking
     patch:
       consumes:
       - application/json
-      description: Update the details of an existing gallery.
+      description: Update the details of an existing booking.
       parameters:
-      - description: Gallery ID
+      - description: Booking ID
         in: path
         name: id
         required: true
         type: string
-      - description: Update Gallery Request
+      - description: Update Booking Request
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/dto.UpdateGalleryRequest'
+          $ref: '#/definitions/dto.UpdateBookingRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Gallery updated successfully
+          description: Booking updated successfully
           schema:
             $ref: '#/definitions/response.Message'
         "400":
@@ -467,95 +471,49 @@ paths:
             $ref: '#/definitions/response.Error'
       security:
       - BearerAuth: []
-      summary: Update a gallery by ID
+      summary: Update a booking by ID
       tags:
-      - Gallery
-  /v1/galleries/images:
-    delete:
-      consumes:
-      - application/json
-      description: Delete multiple images from S3 by providing their URLs.
-      parameters:
-      - description: Delete Images Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.DeleteImagesRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Images deleted successfully
-          schema:
-            $ref: '#/definitions/response.Message'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      security:
-      - BearerAuth: []
-      summary: Delete images from S3
-      tags:
-      - Gallery
-  /v1/galleries/upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload an image file to S3 and return the URL.
-      parameters:
-      - description: Image file to upload
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Image uploaded successfully
-          schema:
-            $ref: '#/definitions/dto.UploadImageResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      security:
-      - BearerAuth: []
-      summary: Upload an image to S3
-      tags:
-      - Gallery
-  /v1/todos:
+      - Booking
+  /v1/rooms:
     get:
       consumes:
       - application/json
-      description: Retrieve all todo items with optional filtering and pagination.
+      description: Retrieve all rooms with optional filtering and pagination.
       parameters:
-      - description: Filter by title
-        in: query
-        name: title
+      - in: query
+        name: limit
+        type: integer
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: sort_by
         type: string
-      - description: Filter by completion status
+      - enum:
+        - ASC
+        - DESC
         in: query
-        name: completed
+        name: sort_dir
+        type: string
+      - description: Filter by name
+        in: query
+        name: name
+        type: string
+      - description: Filter by location
+        in: query
+        name: location
+        type: string
+      - description: Filter by active status
+        in: query
+        name: active
         type: boolean
       produces:
       - application/json
       responses:
         "200":
-          description: List of todo items
+          description: List of rooms
           schema:
-            items:
-              $ref: '#/definitions/model.Todo'
-            type: array
+            $ref: '#/definitions/response.Data-dto_RoomResponse'
         "400":
           description: Bad Request
           schema:
@@ -564,25 +522,40 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Error'
-      summary: Get all todo items
+      summary: Get all rooms
       tags:
-      - Todo
+      - Room
     post:
       consumes:
-      - application/json
-      description: Create a new todo item with the provided details.
+      - multipart/form-data
+      description: Create a new room with the provided details.
       parameters:
-      - description: Create Todo Request
-        in: body
-        name: request
+      - description: Room name
+        in: formData
+        name: name
         required: true
-        schema:
-          $ref: '#/definitions/dto.CreateTodoRequest'
+        type: string
+      - description: Room location
+        in: formData
+        name: location
+        type: string
+      - description: Room capacity
+        in: formData
+        name: capacity
+        type: integer
+      - description: Room active status
+        in: formData
+        name: active
+        type: boolean
+      - description: Room image
+        in: formData
+        name: image
+        type: file
       produces:
       - application/json
       responses:
         "201":
-          description: Todo created successfully
+          description: Room created successfully
           schema:
             $ref: '#/definitions/response.Message'
         "400":
@@ -595,16 +568,16 @@ paths:
             $ref: '#/definitions/response.Error'
       security:
       - BearerAuth: []
-      summary: Create a new todo item
+      summary: Create a new room
       tags:
-      - Todo
-  /v1/todos/{id}:
+      - Room
+  /v1/rooms/{id}:
     delete:
       consumes:
       - application/json
-      description: Delete a todo item using its unique identifier.
+      description: Delete a room using its unique identifier.
       parameters:
-      - description: Todo ID
+      - description: Room ID
         in: path
         name: id
         required: true
@@ -613,7 +586,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Todo deleted successfully
+          description: Room deleted successfully
           schema:
             $ref: '#/definitions/response.Message'
         "400":
@@ -630,15 +603,15 @@ paths:
             $ref: '#/definitions/response.Error'
       security:
       - BearerAuth: []
-      summary: Delete a todo item by ID @SuperAdmin
+      summary: Delete a room by ID
       tags:
-      - Todo
+      - Room
     get:
       consumes:
       - application/json
-      description: Retrieve a todo item by its unique identifier.
+      description: Retrieve a room by its unique identifier.
       parameters:
-      - description: Todo ID
+      - description: Room ID
         in: path
         name: id
         required: true
@@ -647,9 +620,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Todo item details
+          description: Room details
           schema:
-            $ref: '#/definitions/dto.TodoResponse'
+            $ref: '#/definitions/response.Data-dto_RoomResponse'
         "400":
           description: Bad Request
           schema:
@@ -662,30 +635,44 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Error'
-      summary: Get a todo item by ID
+      summary: Get a room by ID
       tags:
-      - Todo
+      - Room
     patch:
       consumes:
-      - application/json
-      description: Update the details of an existing todo item.
+      - multipart/form-data
+      description: Update the details of an existing room.
       parameters:
-      - description: Todo ID
+      - description: Room ID
         in: path
         name: id
         required: true
         type: string
-      - description: Update Todo Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.UpdateTodoRequest'
+      - description: Room name
+        in: formData
+        name: name
+        type: string
+      - description: Room location
+        in: formData
+        name: location
+        type: string
+      - description: Room capacity
+        in: formData
+        name: capacity
+        type: integer
+      - description: Room active status
+        in: formData
+        name: active
+        type: boolean
+      - description: Room image
+        in: formData
+        name: image
+        type: file
       produces:
       - application/json
       responses:
         "200":
-          description: Todo updated successfully
+          description: Room updated successfully
           schema:
             $ref: '#/definitions/response.Message'
         "400":
@@ -702,9 +689,9 @@ paths:
             $ref: '#/definitions/response.Error'
       security:
       - BearerAuth: []
-      summary: Update a todo item by ID
+      summary: Update a room by ID
       tags:
-      - Todo
+      - Room
 securityDefinitions:
   BearerAuth:
     in: header

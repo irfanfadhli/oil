@@ -176,9 +176,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/v1/galleries": {
+        "/v1/bookings": {
             "get": {
-                "description": "Retrieve all galleries with optional filtering and pagination.",
+                "description": "Retrieve all bookings with optional filtering and pagination.",
                 "consumes": [
                     "application/json"
                 ],
@@ -186,28 +186,58 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Gallery"
+                    "Booking"
                 ],
-                "summary": "Get all galleries",
+                "summary": "Get all bookings",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Filter by title",
-                        "name": "title",
+                        "type": "integer",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Filter by description",
-                        "name": "description",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ASC",
+                            "DESC"
+                        ],
+                        "type": "string",
+                        "name": "sort_dir",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by room ID",
+                        "name": "room_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (pending, confirmed, cancelled)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by booking date (YYYY-MM-DD)",
+                        "name": "booking_date",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of galleries",
+                        "description": "List of bookings",
                         "schema": {
-                            "$ref": "#/definitions/dto.GetGalleriesResponse"
+                            "$ref": "#/definitions/response.Data-dto_BookingResponse"
                         }
                     },
                     "400": {
@@ -225,7 +255,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new gallery with the provided details.",
+                "description": "Create a new room booking with the provided details.",
                 "consumes": [
                     "application/json"
                 ],
@@ -233,23 +263,23 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Gallery"
+                    "Booking"
                 ],
-                "summary": "Create a new gallery",
+                "summary": "Create a new booking",
                 "parameters": [
                     {
-                        "description": "Create Gallery Request",
+                        "description": "Create Booking Request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/dto.CreateGalleryRequest"
+                            "$ref": "#/definitions/dto.CreateBookingRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Gallery created successfully",
+                        "description": "Booking created successfully",
                         "schema": {
                             "$ref": "#/definitions/response.Message"
                         }
@@ -274,9 +304,9 @@ const docTemplate = `{
                 ]
             }
         },
-        "/v1/galleries/images": {
-            "delete": {
-                "description": "Delete multiple images from S3 by providing their URLs.",
+        "/v1/bookings/{id}": {
+            "get": {
+                "description": "Retrieve a booking by its unique identifier.",
                 "consumes": [
                     "application/json"
                 ],
@@ -284,29 +314,143 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Gallery"
+                    "Booking"
                 ],
-                "summary": "Delete images from S3",
+                "summary": "Get a booking by ID",
                 "parameters": [
                     {
-                        "description": "Delete Images Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.DeleteImagesRequest"
-                        }
+                        "type": "string",
+                        "description": "Booking ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Images deleted successfully",
+                        "description": "Booking details",
+                        "schema": {
+                            "$ref": "#/definitions/response.Data-dto_BookingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete/cancel a booking using its unique identifier.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Booking"
+                ],
+                "summary": "Delete a booking by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Booking ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Booking deleted successfully",
                         "schema": {
                             "$ref": "#/definitions/response.Message"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "description": "Update the details of an existing booking.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Booking"
+                ],
+                "summary": "Update a booking by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Booking ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Booking Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.UpdateBookingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Booking updated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.Message"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -325,9 +469,86 @@ const docTemplate = `{
                 ]
             }
         },
-        "/v1/galleries/upload": {
+        "/v1/rooms": {
+            "get": {
+                "description": "Retrieve all rooms with optional filtering and pagination.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Room"
+                ],
+                "summary": "Get all rooms",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "ASC",
+                            "DESC"
+                        ],
+                        "type": "string",
+                        "name": "sort_dir",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by name",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by location",
+                        "name": "location",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by active status",
+                        "name": "active",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of rooms",
+                        "schema": {
+                            "$ref": "#/definitions/response.Data-dto_RoomResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
             "post": {
-                "description": "Upload an image file to S3 and return the URL.",
+                "description": "Create a new room with the provided details.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -335,287 +556,45 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Gallery"
+                    "Room"
                 ],
-                "summary": "Upload an image to S3",
+                "summary": "Create a new room",
                 "parameters": [
                     {
-                        "type": "file",
-                        "description": "Image file to upload",
-                        "name": "file",
+                        "type": "string",
+                        "description": "Room name",
+                        "name": "name",
                         "in": "formData",
                         "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Image uploaded successfully",
-                        "schema": {
-                            "$ref": "#/definitions/dto.UploadImageResponse"
-                        }
                     },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/v1/galleries/{id}": {
-            "get": {
-                "description": "Retrieve a gallery by its unique identifier.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Gallery"
-                ],
-                "summary": "Get a gallery by ID",
-                "parameters": [
                     {
                         "type": "string",
-                        "description": "Gallery ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Gallery details",
-                        "schema": {
-                            "$ref": "#/definitions/dto.GalleryResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "description": "Delete a gallery using its unique identifier.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Gallery"
-                ],
-                "summary": "Delete a gallery by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Gallery ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Gallery deleted successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.Message"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
-            },
-            "patch": {
-                "description": "Update the details of an existing gallery.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Gallery"
-                ],
-                "summary": "Update a gallery by ID",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Gallery ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "Room location",
+                        "name": "location",
+                        "in": "formData"
                     },
                     {
-                        "description": "Update Gallery Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.UpdateGalleryRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Gallery updated successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.Message"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    }
-                },
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/v1/todos": {
-            "get": {
-                "description": "Retrieve all todo items with optional filtering and pagination.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Todo"
-                ],
-                "summary": "Get all todo items",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Filter by title",
-                        "name": "title",
-                        "in": "query"
+                        "type": "integer",
+                        "description": "Room capacity",
+                        "name": "capacity",
+                        "in": "formData"
                     },
                     {
                         "type": "boolean",
-                        "description": "Filter by completion status",
-                        "name": "completed",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "List of todo items",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/model.Todo"
-                            }
-                        }
+                        "description": "Room active status",
+                        "name": "active",
+                        "in": "formData"
                     },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Create a new todo item with the provided details.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Todo"
-                ],
-                "summary": "Create a new todo item",
-                "parameters": [
                     {
-                        "description": "Create Todo Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.CreateTodoRequest"
-                        }
+                        "type": "file",
+                        "description": "Room image",
+                        "name": "image",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Todo created successfully",
+                        "description": "Room created successfully",
                         "schema": {
                             "$ref": "#/definitions/response.Message"
                         }
@@ -640,9 +619,9 @@ const docTemplate = `{
                 ]
             }
         },
-        "/v1/todos/{id}": {
+        "/v1/rooms/{id}": {
             "get": {
-                "description": "Retrieve a todo item by its unique identifier.",
+                "description": "Retrieve a room by its unique identifier.",
                 "consumes": [
                     "application/json"
                 ],
@@ -650,13 +629,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Todo"
+                    "Room"
                 ],
-                "summary": "Get a todo item by ID",
+                "summary": "Get a room by ID",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Todo ID",
+                        "description": "Room ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -664,9 +643,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Todo item details",
+                        "description": "Room details",
                         "schema": {
-                            "$ref": "#/definitions/dto.TodoResponse"
+                            "$ref": "#/definitions/response.Data-dto_RoomResponse"
                         }
                     },
                     "400": {
@@ -690,7 +669,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a todo item using its unique identifier.",
+                "description": "Delete a room using its unique identifier.",
                 "consumes": [
                     "application/json"
                 ],
@@ -698,13 +677,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Todo"
+                    "Room"
                 ],
-                "summary": "Delete a todo item by ID @SuperAdmin",
+                "summary": "Delete a room by ID",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Todo ID",
+                        "description": "Room ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -712,7 +691,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Todo deleted successfully",
+                        "description": "Room deleted successfully",
                         "schema": {
                             "$ref": "#/definitions/response.Message"
                         }
@@ -743,38 +722,59 @@ const docTemplate = `{
                 ]
             },
             "patch": {
-                "description": "Update the details of an existing todo item.",
+                "description": "Update the details of an existing room.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Todo"
+                    "Room"
                 ],
-                "summary": "Update a todo item by ID",
+                "summary": "Update a room by ID",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Todo ID",
+                        "description": "Room ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Update Todo Request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/dto.UpdateTodoRequest"
-                        }
+                        "type": "string",
+                        "description": "Room name",
+                        "name": "name",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Room location",
+                        "name": "location",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Room capacity",
+                        "name": "capacity",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Room active status",
+                        "name": "active",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Room image",
+                        "name": "image",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Todo updated successfully",
+                        "description": "Room updated successfully",
                         "schema": {
                             "$ref": "#/definitions/response.Message"
                         }
@@ -807,81 +807,32 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.CreateGalleryRequest": {
+        "dto.BookingResponse": {
             "type": "object",
-            "required": [
-                "images",
-                "title"
-            ],
             "properties": {
-                "description": {
+                "booking_date": {
                     "type": "string"
                 },
-                "images": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "title": {
-                    "type": "string",
-                    "maxLength": 100,
-                    "minLength": 3
-                }
-            }
-        },
-        "dto.CreateTodoRequest": {
-            "type": "object",
-            "required": [
-                "description",
-                "title"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "title": {
-                    "type": "string",
-                    "maxLength": 255
-                }
-            }
-        },
-        "dto.DeleteImagesRequest": {
-            "type": "object",
-            "required": [
-                "image_urls"
-            ],
-            "properties": {
-                "image_urls": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "dto.GalleryResponse": {
-            "type": "object",
-            "properties": {
                 "created_at": {
                     "type": "string"
                 },
                 "created_by": {
                     "type": "string"
                 },
-                "description": {
+                "end_time": {
+                    "type": "string"
+                },
+                "guest_email": {
+                    "type": "string"
+                },
+                "guest_name": {
+                    "type": "string"
+                },
+                "guest_phone": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
-                },
-                "images": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 },
                 "modified_at": {
                     "type": "string"
@@ -889,25 +840,64 @@ const docTemplate = `{
                 "modified_by": {
                     "type": "string"
                 },
-                "title": {
+                "purpose": {
+                    "type": "string"
+                },
+                "room_id": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }
         },
-        "dto.GetGalleriesResponse": {
+        "dto.CreateBookingRequest": {
             "type": "object",
+            "required": [
+                "booking_date",
+                "end_time",
+                "guest_name",
+                "room_id",
+                "start_time"
+            ],
             "properties": {
-                "galleries": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/dto.GalleryResponse"
-                    }
+                "booking_date": {
+                    "type": "string"
                 },
-                "total_data": {
-                    "type": "integer"
+                "end_time": {
+                    "type": "string"
                 },
-                "total_page": {
-                    "type": "integer"
+                "guest_email": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "guest_name": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "guest_phone": {
+                    "type": "string",
+                    "maxLength": 20
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "room_id": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "confirmed",
+                        "cancelled"
+                    ]
                 }
             }
         },
@@ -978,11 +968,14 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.TodoResponse": {
+        "dto.RoomResponse": {
             "type": "object",
             "properties": {
-                "completed": {
+                "active": {
                     "type": "boolean"
+                },
+                "capacity": {
+                    "type": "integer"
                 },
                 "created_at": {
                     "type": "string"
@@ -990,10 +983,13 @@ const docTemplate = `{
                 "created_by": {
                     "type": "string"
                 },
-                "description": {
+                "id": {
                     "type": "string"
                 },
-                "id": {
+                "image": {
+                    "type": "string"
+                },
+                "location": {
                     "type": "string"
                 },
                 "modified_at": {
@@ -1002,83 +998,61 @@ const docTemplate = `{
                 "modified_by": {
                     "type": "string"
                 },
-                "title": {
+                "name": {
                     "type": "string"
                 }
             }
         },
-        "dto.UpdateGalleryRequest": {
+        "dto.UpdateBookingRequest": {
             "type": "object",
             "properties": {
-                "description": {
+                "booking_date": {
                     "type": "string"
                 },
-                "images": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "end_time": {
+                    "type": "string"
                 },
-                "title": {
+                "guest_email": {
                     "type": "string",
-                    "maxLength": 100,
-                    "minLength": 3
-                }
-            }
-        },
-        "dto.UpdateTodoRequest": {
-            "type": "object",
-            "properties": {
-                "completed": {
-                    "type": "boolean"
+                    "maxLength": 100
                 },
-                "description": {
+                "guest_name": {
                     "type": "string",
-                    "maxLength": 255
+                    "maxLength": 100
                 },
-                "title": {
+                "guest_phone": {
                     "type": "string",
-                    "maxLength": 255
+                    "maxLength": 20
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "confirmed",
+                        "cancelled"
+                    ]
                 }
             }
         },
-        "dto.UploadImageResponse": {
+        "response.Data-dto_BookingResponse": {
             "type": "object",
             "properties": {
-                "file_name": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
+                "data": {
+                    "$ref": "#/definitions/dto.BookingResponse"
                 }
             }
         },
-        "model.Todo": {
+        "response.Data-dto_RoomResponse": {
             "type": "object",
             "properties": {
-                "completed": {
-                    "type": "boolean"
-                },
-                "createdBy": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "modifiedBy": {
-                    "type": "string"
-                },
-                "modified_at": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
+                "data": {
+                    "$ref": "#/definitions/dto.RoomResponse"
                 }
             }
         },
