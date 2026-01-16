@@ -28,7 +28,9 @@ import (
 
 	authService "oil/internal/domains/auth/service"
 	userRepository "oil/internal/domains/user/repository"
+	userService "oil/internal/domains/user/service"
 	authHandler "oil/internal/handlers/auth"
+	userHandler "oil/internal/handlers/user"
 )
 
 var configurations = wire.NewSet(
@@ -65,14 +67,19 @@ var bookingDomain = wire.NewSet(
 )
 
 var authDomain = wire.NewSet(
-	userRepository.New,
 	authService.New,
+)
+
+var userDomain = wire.NewSet(
+	userRepository.New,
+	userService.New,
 )
 
 // No galleryDomain needed
 
 var domains = wire.NewSet(
 	authDomain,
+	userDomain,
 	roomDomain,
 	bookingDomain,
 )
@@ -82,6 +89,7 @@ var routing = wire.NewSet(
 	authHandler.New,
 	roomHandler.New,
 	bookingHandler.New,
+	userHandler.New,
 	router.New,
 )
 

@@ -21,7 +21,6 @@ import (
 )
 
 type Auth interface {
-	Register(ctx context.Context, req dto.RegisterRequest) error
 	Login(ctx context.Context, req dto.LoginRequest) (dto.LoginResponse, error)
 	RefreshToken(ctx context.Context, req dto.RefreshTokenRequest) (dto.RefreshTokenResponse, error)
 	ChangePassword(ctx context.Context, req dto.ChangePasswordRequest, userID string) error
@@ -41,51 +40,6 @@ func New(userRepo userRepo.User, cfg *config.Config, otel otel.Otel, jwt jwt.JWT
 		otel:       otel,
 		jwtService: jwt,
 	}
-}
-
-func (s *serviceImpl) Register(ctx context.Context, req dto.RegisterRequest) (err error) {
-	ctx, scope := s.otel.NewScope(ctx, constant.OtelServiceScopeName, constant.OtelServiceScopeName+".Register")
-	defer scope.End()
-	defer scope.TraceIfError(err)
-
-	emailFilter := gDto.FilterGroup{
-		Filters: []any{
-			gDto.Filter{
-				Field:    userModel.FieldEmail,
-				Operator: gDto.FilterOperatorEq,
-				Value:    req.Email,
-				Table:    userModel.TableName,
-			},
-		},
-	}
-
-	exists, err := s.userRepo.Exist(ctx, emailFilter)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to check if user exists")
-
-		return fmt.Errorf("failed to check if user exists: %w", err)
-	}
-
-	if exists {
-		return failure.BadRequestFromString("email already registered")
-	}
-
-	hashedPassword, err := password.Hash(req.Password)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to hash password")
-
-		return fmt.Errorf("failed to hash password: %w", err)
-	}
-
-	username := constant.ContextGuest
-
-	if err = s.userRepo.Insert(ctx, req.ToUserModel(username, hashedPassword)); err != nil {
-		log.Error().Err(err).Msg("failed to create user")
-
-		return fmt.Errorf("failed to create user: %w", err)
-	}
-
-	return nil
 }
 
 func (s *serviceImpl) Login(ctx context.Context, req dto.LoginRequest) (res dto.LoginResponse, err error) {

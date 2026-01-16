@@ -2,38 +2,8 @@ package dto
 
 import (
 	"oil/infras/jwt"
-	userModel "oil/internal/domains/user/model"
-	"oil/shared/constant"
-	gModel "oil/shared/model"
-	"oil/shared/timezone"
 	"time"
-
-	"github.com/google/uuid"
 )
-
-type RegisterRequest struct {
-	Email    string  `json:"email"               validate:"required,email"`
-	Password string  `json:"password"            validate:"required,min=8"`
-	FullName *string `json:"full_name,omitempty"`
-}
-
-func (r *RegisterRequest) ToUserModel(username string, hashedPassword string) userModel.User {
-	return userModel.User{
-		ID:         uuid.NewString(),
-		Email:      r.Email,
-		Password:   hashedPassword,
-		Level:      constant.RoleUser,
-		FullName:   r.FullName,
-		IsVerified: false,
-		Active:     true,
-		Metadata: gModel.Metadata{
-			CreatedAt:  timezone.Now(),
-			ModifiedAt: timezone.Now(),
-			CreatedBy:  username,
-			ModifiedBy: username,
-		},
-	}
-}
 
 type LoginRequest struct {
 	Email    string `json:"email"    validate:"required,email"`
