@@ -20,9 +20,11 @@ import (
 	repository2 "oil/internal/domains/room/repository"
 	service2 "oil/internal/domains/room/service"
 	"oil/internal/domains/user/repository"
+	service4 "oil/internal/domains/user/service"
 	"oil/internal/handlers/auth"
 	"oil/internal/handlers/booking"
 	"oil/internal/handlers/room"
+	"oil/internal/handlers/user"
 	"oil/permissions"
 	"oil/shared/cache"
 	"oil/transport/http"
@@ -36,11 +38,11 @@ func InitializeService() *http.HTTP {
 	configConfig := config.Get()
 	connection := postgres.New(configConfig)
 	otelOtel := otel.New(configConfig)
-	user := repository.New(connection, otelOtel)
+	repositoryUser := repository.New(connection, otelOtel)
 	client := redis.New(configConfig)
 	redisCache := cache.NewRedisCache(client, otelOtel)
 	jwtJWT := jwt.New(configConfig, redisCache)
-	serviceAuth := service.New(user, configConfig, otelOtel, jwtJWT)
+	serviceAuth := service.New(repositoryUser, configConfig, otelOtel, jwtJWT)
 	handler := auth.New(serviceAuth, otelOtel)
 	repositoryRoom := repository2.New(connection, otelOtel)
 	s3S3 := s3.New(configConfig, otelOtel)
@@ -49,10 +51,13 @@ func InitializeService() *http.HTTP {
 	repositoryBooking := repository3.New(connection, otelOtel)
 	serviceBooking := service3.New(repositoryBooking, repositoryRoom, configConfig, redisCache, otelOtel)
 	bookingHandler := booking.New(serviceBooking, otelOtel)
+	serviceUser := service4.New(repositoryUser, configConfig, redisCache, otelOtel)
+	userHandler := user.New(serviceUser, otelOtel)
 	domainHandlers := router.DomainHandlers{
 		Auth:    handler,
 		Room:    roomHandler,
 		Booking: bookingHandler,
+		User:    userHandler,
 	}
 	routerRouter := router.New(domainHandlers)
 	appMiddleware := middleware.NewAppMiddleware(otelOtel, configConfig, redisCache)
@@ -76,12 +81,15 @@ var roomDomain = wire.NewSet(repository2.New, service2.New)
 
 var bookingDomain = wire.NewSet(repository3.New, service3.New)
 
-var authDomain = wire.NewSet(repository.New, service.New)
+var authDomain = wire.NewSet(service.New)
+
+var userDomain = wire.NewSet(repository.New, service4.New)
 
 var domains = wire.NewSet(
 	authDomain,
+	userDomain,
 	roomDomain,
 	bookingDomain,
 )
 
-var routing = wire.NewSet(wire.Struct(new(router.DomainHandlers), "*"), auth.New, room.New, booking.New, router.New)
+var routing = wire.NewSet(wire.Struct(new(router.DomainHandlers), "*"), auth.New, room.New, booking.New, user.New, router.New)
