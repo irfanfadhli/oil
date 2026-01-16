@@ -107,26 +107,35 @@ func (handler *Handler) GetBookings(w http.ResponseWriter, r *http.Request) {
 
 	filterGroup := gDto.FilterGroup{
 		Operator: gDto.FilterGroupOperatorAnd,
-		Filters: []any{
-			gDto.Filter{
-				Field:    model.FieldRoomID,
-				Operator: gDto.FilterOperatorEq,
-				Value:    roomID,
-				Table:    model.TableName,
-			},
-			gDto.Filter{
-				Field:    model.FieldStatus,
-				Operator: gDto.FilterOperatorEq,
-				Value:    status,
-				Table:    model.TableName,
-			},
-			gDto.Filter{
-				Field:    model.FieldBookingDate,
-				Operator: gDto.FilterOperatorEq,
-				Value:    bookingDate,
-				Table:    model.TableName,
-			},
-		},
+		Filters:  []any{},
+	}
+
+	// Only add filters if the values are non-empty
+	if roomID != "" {
+		filterGroup.Filters = append(filterGroup.Filters, gDto.Filter{
+			Field:    model.FieldRoomID,
+			Operator: gDto.FilterOperatorEq,
+			Value:    roomID,
+			Table:    model.TableName,
+		})
+	}
+
+	if status != "" {
+		filterGroup.Filters = append(filterGroup.Filters, gDto.Filter{
+			Field:    model.FieldStatus,
+			Operator: gDto.FilterOperatorEq,
+			Value:    status,
+			Table:    model.TableName,
+		})
+	}
+
+	if bookingDate != "" {
+		filterGroup.Filters = append(filterGroup.Filters, gDto.Filter{
+			Field:    model.FieldBookingDate,
+			Operator: gDto.FilterOperatorEq,
+			Value:    bookingDate,
+			Table:    model.TableName,
+		})
 	}
 
 	bookings, err := handler.service.GetAll(ctx, queryParams, filterGroup)
