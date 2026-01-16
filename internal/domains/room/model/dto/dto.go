@@ -13,12 +13,12 @@ import (
 )
 
 type CreateRoomRequest struct {
-	Name      string                `json:"name"      validate:"required,max=100"`
-	Location  string                `json:"location"  validate:"omitempty,max=100"`
-	Capacity  int                   `json:"capacity"  validate:"omitempty,min=0"`
-	Image     *multipart.FileHeader `json:"image"     validate:"omitempty,mimetypes=image/png image/jpg image/jpeg,maxfilesize=1"`
+	Name      string                `json:"name"     validate:"required,max=100"`
+	Location  string                `json:"location" validate:"omitempty,max=100"`
+	Capacity  int                   `json:"capacity" validate:"omitempty,min=0"`
+	Image     *multipart.FileHeader `json:"image"    validate:"omitempty,mimetypes=image/png image/jpg image/jpeg,maxfilesize=1"`
 	ImageFile multipart.File        `json:"-"`
-	Active    *bool                 `json:"active"    validate:"omitempty"`
+	Active    *bool                 `json:"active"   validate:"omitempty"`
 }
 
 func (c *CreateRoomRequest) ToModel(user string, imageURL string) model.Room {
@@ -44,12 +44,12 @@ func (c *CreateRoomRequest) ToModel(user string, imageURL string) model.Room {
 }
 
 type UpdateRoomRequest struct {
-	Name      string                `db:"name"     json:"name"     validate:"omitempty,max=100"`
-	Location  string                `db:"location" json:"location" validate:"omitempty,max=100"`
-	Capacity  *int                  `db:"capacity" json:"capacity" validate:"omitempty,min=0"`
-	Image     *multipart.FileHeader `json:"image"    validate:"omitempty,mimetypes=image/png image/jpg image/jpeg,maxfilesize=1"`
+	Name      string                `db:"name"     json:"name"                                                                 validate:"omitempty,max=100"`
+	Location  string                `db:"location" json:"location"                                                             validate:"omitempty,max=100"`
+	Capacity  *int                  `db:"capacity" json:"capacity"                                                             validate:"omitempty,min=0"`
+	Image     *multipart.FileHeader `json:"image"  validate:"omitempty,mimetypes=image/png image/jpg image/jpeg,maxfilesize=1"`
 	ImageFile multipart.File        `json:"-"`
-	Active    *bool                 `db:"active"   json:"active"   validate:"omitempty"`
+	Active    *bool                 `db:"active"   json:"active"                                                               validate:"omitempty"`
 }
 
 type RoomResponse struct {

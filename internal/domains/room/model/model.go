@@ -6,12 +6,12 @@ const (
 	TableName  = "rooms"
 	EntityName = "room"
 
-	FieldID         = "id"
-	FieldName       = "name"
-	FieldLocation   = "location"
-	FieldCapacity   = "capacity"
-	FieldImage      = "image"
-	FieldActive     = "active"
+	FieldID       = "id"
+	FieldName     = "name"
+	FieldLocation = "location"
+	FieldCapacity = "capacity"
+	FieldImage    = "image"
+	FieldActive   = "active"
 )
 
 type Room struct {

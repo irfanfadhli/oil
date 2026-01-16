@@ -62,7 +62,9 @@ func (s *serviceImpl) Create(ctx context.Context, req dto.CreateRoomRequest) (er
 	user, _ := ctx.Value(constant.ContextKeyUserID).(string)
 
 	imageURL := constant.Empty
+
 	var uploadedObjectName string
+
 	if req.Image != nil {
 		bucketName := s.cfg.External.S3.BucketName
 		filename := uuid.NewString()
@@ -79,6 +81,7 @@ func (s *serviceImpl) Create(ctx context.Context, req dto.CreateRoomRequest) (er
 
 			return fmt.Errorf("failed to upload image: %w", err)
 		}
+
 		imageURL = url
 		uploadedObjectName = filename
 	}
@@ -239,7 +242,9 @@ func (s *serviceImpl) Update(ctx context.Context, req dto.UpdateRoomRequest, id 
 
 func (s *serviceImpl) updateInternal(ctx context.Context, req dto.UpdateRoomRequest, currentRoom model.Room, user string, filter gDto.FilterGroup) error {
 	imageURL := constant.Empty
+
 	var uploadedObjectName string
+
 	bucketName := s.cfg.External.S3.BucketName
 
 	if req.Image != nil {
@@ -255,6 +260,7 @@ func (s *serviceImpl) updateInternal(ctx context.Context, req dto.UpdateRoomRequ
 		if err != nil {
 			return fmt.Errorf("failed to upload image: %w", err)
 		}
+
 		imageURL = url
 		uploadedObjectName = filename
 	}

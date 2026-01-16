@@ -64,14 +64,14 @@ func (c *CreateBookingRequest) ToModel(user string) (model.Booking, error) {
 }
 
 type UpdateBookingRequest struct {
-	GuestName   string `db:"guest_name"   json:"guest_name"   validate:"omitempty,max=100"`
-	GuestEmail  string `db:"guest_email"  json:"guest_email"  validate:"omitempty,email,max=100"`
-	GuestPhone  string `db:"guest_phone"  json:"guest_phone"  validate:"omitempty,max=20"`
+	GuestName   string `db:"guest_name"     json:"guest_name"    validate:"omitempty,max=100"`
+	GuestEmail  string `db:"guest_email"    json:"guest_email"   validate:"omitempty,email,max=100"`
+	GuestPhone  string `db:"guest_phone"    json:"guest_phone"   validate:"omitempty,max=20"`
 	BookingDate string `json:"booking_date" validate:"omitempty"`
 	StartTime   string `json:"start_time"   validate:"omitempty"`
 	EndTime     string `json:"end_time"     validate:"omitempty"`
-	Purpose     string `db:"purpose"      json:"purpose"      validate:"omitempty"`
-	Status      string `db:"status"       json:"status"       validate:"omitempty,oneof=pending confirmed cancelled"`
+	Purpose     string `db:"purpose"        json:"purpose"       validate:"omitempty"`
+	Status      string `db:"status"         json:"status"        validate:"omitempty,oneof=pending confirmed cancelled"`
 }
 
 type BookingResponse struct {

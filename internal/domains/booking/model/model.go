@@ -9,16 +9,16 @@ const (
 	TableName  = "room_bookings"
 	EntityName = "booking"
 
-	FieldID         = "id"
-	FieldRoomID     = "room_id"
-	FieldGuestName  = "guest_name"
-	FieldGuestEmail = "guest_email"
-	FieldGuestPhone = "guest_phone"
+	FieldID          = "id"
+	FieldRoomID      = "room_id"
+	FieldGuestName   = "guest_name"
+	FieldGuestEmail  = "guest_email"
+	FieldGuestPhone  = "guest_phone"
 	FieldBookingDate = "booking_date"
-	FieldStartTime  = "start_time"
-	FieldEndTime    = "end_time"
-	FieldPurpose    = "purpose"
-	FieldStatus     = "status"
+	FieldStartTime   = "start_time"
+	FieldEndTime     = "end_time"
+	FieldPurpose     = "purpose"
+	FieldStatus      = "status"
 )
 
 type Booking struct {

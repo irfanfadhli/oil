@@ -73,8 +73,8 @@ func (handler *Handler) CreateRoom(writer http.ResponseWriter, request *http.Req
 	}
 
 	if capStr := request.FormValue("capacity"); capStr != "" {
-		if cap, err := shared.ConvertStringToInt(capStr); err == nil {
-			req.Capacity = cap
+		if c, err := shared.ConvertStringToInt(capStr); err == nil {
+			req.Capacity = c
 		}
 	}
 
@@ -86,6 +86,7 @@ func (handler *Handler) CreateRoom(writer http.ResponseWriter, request *http.Req
 	if err == nil {
 		req.Image = fileHeader
 		req.ImageFile = file
+
 		defer file.Close()
 	}
 
@@ -250,8 +251,8 @@ func (handler *Handler) UpdateRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if capStr := r.FormValue("capacity"); capStr != "" {
-		if cap, err := shared.ConvertStringToInt(capStr); err == nil {
-			req.Capacity = &cap
+		if c, err := shared.ConvertStringToInt(capStr); err == nil {
+			req.Capacity = &c
 		}
 	}
 
@@ -263,6 +264,7 @@ func (handler *Handler) UpdateRoom(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		req.Image = fileHeader
 		req.ImageFile = file
+
 		defer file.Close()
 	}
 
