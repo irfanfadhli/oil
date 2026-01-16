@@ -64,6 +64,29 @@ definitions:
     - room_id
     - start_time
     type: object
+  dto.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      is_verified:
+        type: boolean
+      level:
+        enum:
+        - "1"
+        - "2"
+        - "3"
+        type: string
+      password:
+        minLength: 8
+        type: string
+      profile_image:
+        type: string
+    required:
+    - email
+    - password
+    type: object
   dto.LoginRequest:
     properties:
       email:
@@ -94,19 +117,6 @@ definitions:
         type: string
       refresh_token:
         type: string
-    type: object
-  dto.RegisterRequest:
-    properties:
-      email:
-        type: string
-      full_name:
-        type: string
-      password:
-        minLength: 8
-        type: string
-    required:
-    - email
-    - password
     type: object
   dto.RoomResponse:
     properties:
@@ -157,6 +167,50 @@ definitions:
         - cancelled
         type: string
     type: object
+  dto.UpdateUserRequest:
+    properties:
+      active:
+        type: boolean
+      full_name:
+        type: string
+      is_verified:
+        type: boolean
+      level:
+        enum:
+        - "1"
+        - "2"
+        - "3"
+        type: string
+      profile_image:
+        type: string
+    type: object
+  dto.UserResponse:
+    properties:
+      active:
+        type: boolean
+      created_at:
+        type: string
+      created_by:
+        type: string
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: string
+      is_verified:
+        type: boolean
+      last_login:
+        type: string
+      level:
+        type: string
+      modified_at:
+        type: string
+      modified_by:
+        type: string
+      profile_image:
+        type: string
+    type: object
   response.Data-dto_BookingResponse:
     properties:
       data:
@@ -166,6 +220,11 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/dto.RoomResponse'
+    type: object
+  response.Data-dto_UserResponse:
+    properties:
+      data:
+        $ref: '#/definitions/dto.UserResponse'
     type: object
   response.Error:
     properties:
@@ -253,36 +312,6 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Refresh user token
-      tags:
-      - Auth
-  /v1/auth/register:
-    post:
-      consumes:
-      - application/json
-      description: Register a new user with the provided details.
-      parameters:
-      - description: Register Request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/dto.RegisterRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: User registered successfully
-          schema:
-            $ref: '#/definitions/response.Message'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: Register a new user
       tags:
       - Auth
   /v1/bookings:
@@ -692,6 +721,195 @@ paths:
       summary: Update a room by ID
       tags:
       - Room
+  /v1/users:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all users with optional filtering and pagination.
+      parameters:
+      - in: query
+        name: limit
+        type: integer
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: sort_by
+        type: string
+      - enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_dir
+        type: string
+      - description: Filter by email
+        in: query
+        name: email
+        type: string
+      - description: Filter by level
+        in: query
+        name: level
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of users
+          schema:
+            $ref: '#/definitions/response.Data-dto_UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Get all users
+      tags:
+      - User
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with the provided details.
+      parameters:
+      - description: Create User Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            $ref: '#/definitions/response.Message'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Create a new user
+      tags:
+      - User
+  /v1/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a user using their unique identifier.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deleted successfully
+          schema:
+            $ref: '#/definitions/response.Message'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Delete a user by ID
+      tags:
+      - User
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a user by their unique identifier.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User details
+          schema:
+            $ref: '#/definitions/response.Data-dto_UserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Get a user by ID
+      tags:
+      - User
+    patch:
+      consumes:
+      - application/json
+      description: Update the details of an existing user.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update User Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User updated successfully
+          schema:
+            $ref: '#/definitions/response.Message'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Update a user by ID
+      tags:
+      - User
 securityDefinitions:
   BearerAuth:
     in: header
