@@ -27,7 +27,6 @@ func New(service service.Auth, otel otel.Otel) Handler {
 
 func (handler *Handler) Router(r chi.Router) {
 	r.Route("/auth", func(r chi.Router) {
-
 		r.Post("/login", handler.Login)
 		r.Post("/refresh-token", handler.RefreshToken)
 	})
