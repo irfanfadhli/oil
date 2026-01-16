@@ -14,15 +14,15 @@ import (
 	"oil/infras/postgres"
 	"oil/infras/redis"
 	"oil/infras/s3"
-	service2 "oil/internal/domains/auth/service"
-	repository3 "oil/internal/domains/gallery/repository"
-	service3 "oil/internal/domains/gallery/service"
-	"oil/internal/domains/todo/repository"
-	"oil/internal/domains/todo/service"
-	repository2 "oil/internal/domains/user/repository"
+	"oil/internal/domains/auth/service"
+	repository3 "oil/internal/domains/booking/repository"
+	service3 "oil/internal/domains/booking/service"
+	repository2 "oil/internal/domains/room/repository"
+	service2 "oil/internal/domains/room/service"
+	"oil/internal/domains/user/repository"
 	"oil/internal/handlers/auth"
-	"oil/internal/handlers/gallery"
-	"oil/internal/handlers/todo"
+	"oil/internal/handlers/booking"
+	"oil/internal/handlers/room"
 	"oil/permissions"
 	"oil/shared/cache"
 	"oil/transport/http"
@@ -36,23 +36,23 @@ func InitializeService() *http.HTTP {
 	configConfig := config.Get()
 	connection := postgres.New(configConfig)
 	otelOtel := otel.New(configConfig)
-	repositoryTodo := repository.New(connection, otelOtel)
+	user := repository.New(connection, otelOtel)
 	client := redis.New(configConfig)
 	redisCache := cache.NewRedisCache(client, otelOtel)
-	serviceTodo := service.New(repositoryTodo, configConfig, redisCache, otelOtel)
-	handler := todo.New(serviceTodo, otelOtel)
-	user := repository2.New(connection, otelOtel)
 	jwtJWT := jwt.New(configConfig, redisCache)
-	serviceAuth := service2.New(user, configConfig, otelOtel, jwtJWT)
-	authHandler := auth.New(serviceAuth, otelOtel)
-	repositoryGallery := repository3.New(connection, otelOtel)
+	serviceAuth := service.New(user, configConfig, otelOtel, jwtJWT)
+	handler := auth.New(serviceAuth, otelOtel)
+	repositoryRoom := repository2.New(connection, otelOtel)
 	s3S3 := s3.New(configConfig, otelOtel)
-	serviceGallery := service3.New(repositoryGallery, configConfig, redisCache, otelOtel, s3S3)
-	galleryHandler := gallery.New(serviceGallery, s3S3, otelOtel)
+	serviceRoom := service2.New(repositoryRoom, configConfig, redisCache, otelOtel, s3S3)
+	roomHandler := room.New(serviceRoom, otelOtel)
+	repositoryBooking := repository3.New(connection, otelOtel)
+	serviceBooking := service3.New(repositoryBooking, repositoryRoom, configConfig, redisCache, otelOtel)
+	bookingHandler := booking.New(serviceBooking, otelOtel)
 	domainHandlers := router.DomainHandlers{
-		Todo:    handler,
-		Auth:    authHandler,
-		Gallery: galleryHandler,
+		Auth:    handler,
+		Room:    roomHandler,
+		Booking: bookingHandler,
 	}
 	routerRouter := router.New(domainHandlers)
 	appMiddleware := middleware.NewAppMiddleware(otelOtel, configConfig, redisCache)
@@ -72,16 +72,16 @@ var middlewares = wire.NewSet(middleware.NewAppMiddleware, middleware.NewAuthRol
 
 var sharedHelpers = wire.NewSet(cache.NewRedisCache)
 
-var todoDomain = wire.NewSet(repository.New, service.New)
+var roomDomain = wire.NewSet(repository2.New, service2.New)
 
-var authDomain = wire.NewSet(repository2.New, service2.New)
+var bookingDomain = wire.NewSet(repository3.New, service3.New)
 
-var galleryDomain = wire.NewSet(repository3.New, service3.New)
+var authDomain = wire.NewSet(repository.New, service.New)
 
 var domains = wire.NewSet(
-	todoDomain,
 	authDomain,
-	galleryDomain,
+	roomDomain,
+	bookingDomain,
 )
 
-var routing = wire.NewSet(wire.Struct(new(router.DomainHandlers), "*"), todo.New, auth.New, gallery.New, router.New)
+var routing = wire.NewSet(wire.Struct(new(router.DomainHandlers), "*"), auth.New, room.New, booking.New, router.New)
