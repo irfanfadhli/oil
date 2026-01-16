@@ -20,33 +20,80 @@
       "skip": true
     },
     {
-      "path": "/v1/todos",
+      "path": "/v1/rooms",
       "method": "GET",
-      "permissions": ["user", "admin", "superadmin"],
+      "permissions": [],
       "skip": true
     },
     {
-      "path": "/v1/todos/{id}",
+      "path": "/v1/rooms/{id}",
       "method": "GET",
-      "permissions": ["user", "admin", "superadmin"],
+      "permissions": [],
       "skip": true
     },
     {
-      "path": "/v1/todos",
+      "path": "/v1/rooms",
       "method": "POST",
-      "permissions": ["admin", "superadmin"],
+      "permissions": [
+        "admin",
+        "superadmin"
+      ],
       "skip": false
     },
     {
-      "path": "/v1/todos/{id}",
+      "path": "/v1/rooms/{id}",
       "method": "PATCH",
-      "permissions": ["user", "admin", "superadmin"],
+      "permissions": [
+        "admin",
+        "superadmin"
+      ],
       "skip": false
     },
     {
-      "path": "/v1/todos/{id}",
+      "path": "/v1/rooms/{id}",
       "method": "DELETE",
-      "permissions": ["admin", "superadmin"],
+      "permissions": [
+        "superadmin"
+      ],
+      "skip": false
+    },
+    {
+      "path": "/v1/bookings",
+      "method": "GET",
+      "permissions": [
+        "admin",
+        "superadmin"
+      ],
+      "skip": false
+    },
+    {
+      "path": "/v1/bookings/{id}",
+      "method": "GET",
+      "permissions": [],
+      "skip": true
+    },
+    {
+      "path": "/v1/bookings",
+      "method": "POST",
+      "permissions": [],
+      "skip": true
+    },
+    {
+      "path": "/v1/bookings/{id}",
+      "method": "PATCH",
+      "permissions": [
+        "admin",
+        "superadmin"
+      ],
+      "skip": false
+    },
+    {
+      "path": "/v1/bookings/{id}",
+      "method": "DELETE",
+      "permissions": [
+        "admin",
+        "superadmin"
+      ],
       "skip": false
     }
   ]
