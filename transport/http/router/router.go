@@ -2,16 +2,16 @@ package router
 
 import (
 	"oil/internal/handlers/auth"
-	"oil/internal/handlers/gallery"
-	"oil/internal/handlers/todo"
+	"oil/internal/handlers/booking"
+	"oil/internal/handlers/room"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type DomainHandlers struct {
-	Todo    todo.Handler
 	Auth    auth.Handler
-	Gallery gallery.Handler
+	Room    room.Handler
+	Booking booking.Handler
 }
 
 type Router struct {
@@ -20,9 +20,9 @@ type Router struct {
 
 func (r *Router) SetupRoutes(router chi.Router) {
 	router.Route("/v1", func(routerGroup chi.Router) {
-		r.DomainHandlers.Todo.Router(routerGroup)
 		r.DomainHandlers.Auth.Router(routerGroup)
-		r.DomainHandlers.Gallery.Router(routerGroup)
+		r.DomainHandlers.Room.Router(routerGroup)
+		r.DomainHandlers.Booking.Router(routerGroup)
 	})
 }
 

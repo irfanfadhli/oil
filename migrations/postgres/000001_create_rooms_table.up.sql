@@ -1,0 +1,12 @@
+CREATE TABLE rooms (
+  id VARCHAR(36) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  location VARCHAR(100),
+  capacity INT,
+  image TEXT,
+  active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  modified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by VARCHAR(36) NOT NULL,
+  modified_by VARCHAR(36) NOT NULL
+);

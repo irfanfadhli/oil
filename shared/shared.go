@@ -34,6 +34,21 @@ func ConvertStringToBool(value string) *bool {
 	return &boolValue
 }
 
+func ConvertStringToInt(value string) (int, error) {
+	if value == "" {
+		return 0, nil
+	}
+
+	res, err := strconv.Atoi(value)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to convert string to int")
+
+		return 0, err
+	}
+
+	return res, nil
+}
+
 func CalculateTotalPage(total, limit int) (res int) {
 	if total == 0 || limit <= 0 {
 		res = 1

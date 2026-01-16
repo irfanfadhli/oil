@@ -10,25 +10,25 @@ import (
 	"oil/infras/postgres"
 	"oil/infras/redis"
 	"oil/infras/s3"
-	todoHandler "oil/internal/handlers/todo"
 	"oil/permissions"
 	"oil/shared/cache"
 	"oil/transport/http"
 	"oil/transport/http/middleware"
 	"oil/transport/http/router"
 
-	todoRepository "oil/internal/domains/todo/repository"
-	todoService "oil/internal/domains/todo/service"
+	roomRepository "oil/internal/domains/room/repository"
+	roomService "oil/internal/domains/room/service"
+	roomHandler "oil/internal/handlers/room"
+
+	bookingRepository "oil/internal/domains/booking/repository"
+	bookingService "oil/internal/domains/booking/service"
+	bookingHandler "oil/internal/handlers/booking"
 
 	"github.com/google/wire"
 
 	authService "oil/internal/domains/auth/service"
 	userRepository "oil/internal/domains/user/repository"
 	authHandler "oil/internal/handlers/auth"
-
-	galleryRepository "oil/internal/domains/gallery/repository"
-	galleryService "oil/internal/domains/gallery/service"
-	galleryHandler "oil/internal/handlers/gallery"
 )
 
 var configurations = wire.NewSet(
@@ -54,9 +54,14 @@ var sharedHelpers = wire.NewSet(
 	cache.NewRedisCache,
 )
 
-var todoDomain = wire.NewSet(
-	todoRepository.New,
-	todoService.New,
+var roomDomain = wire.NewSet(
+	roomRepository.New,
+	roomService.New,
+)
+
+var bookingDomain = wire.NewSet(
+	bookingRepository.New,
+	bookingService.New,
 )
 
 var authDomain = wire.NewSet(
@@ -64,22 +69,19 @@ var authDomain = wire.NewSet(
 	authService.New,
 )
 
-var galleryDomain = wire.NewSet(
-	galleryRepository.New,
-	galleryService.New,
-)
+// No galleryDomain needed
 
 var domains = wire.NewSet(
-	todoDomain,
 	authDomain,
-	galleryDomain,
+	roomDomain,
+	bookingDomain,
 )
 
 var routing = wire.NewSet(
 	wire.Struct(new(router.DomainHandlers), "*"),
-	todoHandler.New,
 	authHandler.New,
-	galleryHandler.New,
+	roomHandler.New,
+	bookingHandler.New,
 	router.New,
 )
 
