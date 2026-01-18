@@ -180,6 +180,7 @@ func (handler *Handler) GetMyBookings(w http.ResponseWriter, r *http.Request) {
 		scope.TraceError(nil)
 		log.Error().Msg("failed to get user ID from context")
 		response.WithError(w, failure.Unauthorized("unauthorized"))
+
 		return
 	}
 
