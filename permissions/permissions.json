@@ -54,10 +54,7 @@
     {
       "path": "/v1/bookings",
       "method": "GET",
-      "permissions": [
-        "admin",
-        "superadmin"
-      ],
+      "permissions": [],
       "skip": false
     },
     {
