@@ -8,7 +8,6 @@ import (
 	"oil/internal/domains/booking/service"
 	"oil/shared/constant"
 	gDto "oil/shared/dto"
-	"oil/shared/failure"
 	"oil/shared/validator"
 	"oil/transport/http/response"
 
@@ -174,15 +173,7 @@ func (handler *Handler) GetMyBookings(w http.ResponseWriter, r *http.Request) {
 	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".GetMyBookings")
 	defer scope.End()
 
-	// Get user_id from context
-	userID, ok := ctx.Value(constant.ContextKeyUserID).(string)
-	if !ok || userID == "" {
-		scope.TraceError(nil)
-		log.Error().Msg("failed to get user ID from context")
-		response.WithError(w, failure.Unauthorized("unauthorized"))
-
-		return
-	}
+	userID, _ := ctx.Value(constant.ContextKeyUserID).(string)
 
 	queryParams := gDto.QueryParams{}
 	queryParams.FromRequest(r, true)
@@ -193,7 +184,6 @@ func (handler *Handler) GetMyBookings(w http.ResponseWriter, r *http.Request) {
 	filterGroup := gDto.FilterGroup{
 		Operator: gDto.FilterGroupOperatorAnd,
 		Filters: []any{
-			// Always filter by created_by (user_id)
 			gDto.Filter{
 				Field:    model.FieldCreatedBy,
 				Operator: gDto.FilterOperatorEq,

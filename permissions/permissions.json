@@ -64,7 +64,7 @@
       "path": "/v1/bookings/mybookings",
       "method": "GET",
       "permissions": [],
-      "skip": true
+      "skip": false
     },
     {
       "path": "/v1/bookings/{id}",
@@ -76,7 +76,7 @@
       "path": "/v1/bookings",
       "method": "POST",
       "permissions": [],
-      "skip": true
+      "skip": false
     },
     {
       "path": "/v1/bookings/{id}",

@@ -147,13 +147,25 @@ func (m *authRoleImpl) Auth(next http.Handler) http.Handler {
 		if claims.UserID == "" {
 			log.Error().Msg("JWT claims: UserID is empty")
 
-			response.WithError(writer, failure.Unauthorized("Invalid token claims"))
+			err := failure.Unauthorized("Invalid token claims")
+			response.WithError(writer, err)
+
+			scope.TraceError(err)
+			scope.End()
+
+			return
 		}
 
 		if claims.Email == "" {
 			log.Error().Msg("JWT claims: Email is empty")
 
-			response.WithError(writer, failure.Unauthorized("Invalid token claims"))
+			err := failure.Unauthorized("Invalid token claims")
+			response.WithError(writer, err)
+
+			scope.TraceError(err)
+			scope.End()
+
+			return
 		}
 
 		ctx = context.WithValue(ctx, constant.ContextKeyUserID, claims.UserID)
