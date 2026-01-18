@@ -101,7 +101,14 @@ func (handler *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
 
 	filterGroup := gDto.FilterGroup{
 		Operator: gDto.FilterGroupOperatorAnd,
-		Filters:  []any{},
+		Filters: []any{
+			gDto.Filter{
+				Field:    model.FieldLevel,
+				Operator: gDto.FilterOperatorEq,
+				Value:    constant.RoleUser,
+				Table:    model.TableName,
+			},
+		},
 	}
 
 	email := r.URL.Query().Get(model.FieldEmail)
