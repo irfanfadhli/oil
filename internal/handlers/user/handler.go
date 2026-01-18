@@ -99,25 +99,29 @@ func (handler *Handler) GetUsers(w http.ResponseWriter, r *http.Request) {
 	queryParams := gDto.QueryParams{}
 	queryParams.FromRequest(r, true)
 
-	email := r.URL.Query().Get(model.FieldEmail)
-	level := r.URL.Query().Get(model.FieldLevel)
-
 	filterGroup := gDto.FilterGroup{
 		Operator: gDto.FilterGroupOperatorAnd,
-		Filters: []any{
-			gDto.Filter{
-				Field:    model.FieldEmail,
-				Operator: gDto.FilterOperatorEq,
-				Value:    email,
-				Table:    model.TableName,
-			},
-			gDto.Filter{
-				Field:    model.FieldLevel,
-				Operator: gDto.FilterOperatorEq,
-				Value:    level,
-				Table:    model.TableName,
-			},
-		},
+		Filters:  []any{},
+	}
+
+	email := r.URL.Query().Get(model.FieldEmail)
+	if email != "" {
+		filterGroup.Filters = append(filterGroup.Filters, gDto.Filter{
+			Field:    model.FieldEmail,
+			Operator: gDto.FilterOperatorEq,
+			Value:    email,
+			Table:    model.TableName,
+		})
+	}
+
+	level := r.URL.Query().Get(model.FieldLevel)
+	if level != "" {
+		filterGroup.Filters = append(filterGroup.Filters, gDto.Filter{
+			Field:    model.FieldLevel,
+			Operator: gDto.FilterOperatorEq,
+			Value:    level,
+			Table:    model.TableName,
+		})
 	}
 
 	users, err := handler.service.GetAll(ctx, queryParams, filterGroup)
