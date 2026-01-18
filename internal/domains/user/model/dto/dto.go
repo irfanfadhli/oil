@@ -14,7 +14,7 @@ import (
 type CreateUserRequest struct {
 	Email        string  `json:"email"                   validate:"required,email"`
 	Password     string  `json:"password"                validate:"required,min=8"`
-	Level        string  `json:"level"                   validate:"omitempty,oneof=1 2 3"`
+	Level        string  `json:"level"                   validate:"omitempty,oneof=user"`
 	FullName     *string `json:"full_name,omitempty"`
 	ProfileImage *string `json:"profile_image,omitempty"`
 	IsVerified   *bool   `json:"is_verified,omitempty"`
