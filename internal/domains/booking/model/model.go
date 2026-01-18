@@ -19,6 +19,7 @@ const (
 	FieldEndTime     = "end_time"
 	FieldPurpose     = "purpose"
 	FieldStatus      = "status"
+	FieldCreatedBy   = "created_by"
 )
 
 type Booking struct {

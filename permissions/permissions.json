@@ -61,6 +61,12 @@
       "skip": false
     },
     {
+      "path": "/v1/bookings/mybookings",
+      "method": "GET",
+      "permissions": [],
+      "skip": true
+    },
+    {
       "path": "/v1/bookings/{id}",
       "method": "GET",
       "permissions": [],

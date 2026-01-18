@@ -8,6 +8,7 @@ import (
 	"oil/internal/domains/booking/service"
 	"oil/shared/constant"
 	gDto "oil/shared/dto"
+	"oil/shared/failure"
 	"oil/shared/validator"
 	"oil/transport/http/response"
 
@@ -32,6 +33,7 @@ func (handler *Handler) Router(router chi.Router) {
 	router.Route("/bookings", func(routerGroup chi.Router) {
 		routerGroup.Post("/", handler.CreateBooking)
 		routerGroup.Get("/", handler.GetBookings)
+		routerGroup.Get("/mybookings", handler.GetMyBookings)
 		routerGroup.Get("/{id}", handler.GetBookingByID)
 		routerGroup.Patch("/{id}", handler.UpdateBooking)
 		routerGroup.Delete("/{id}", handler.DeleteBooking)
@@ -149,6 +151,87 @@ func (handler *Handler) GetBookings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	scope.AddEvent("Bookings retrieved successfully")
+
+	response.WithJSON(w, http.StatusOK, bookings)
+}
+
+// GetMyBookings retrieves all bookings for the currently authenticated user.
+// @Summary Get my bookings
+// @Description Retrieve all bookings for the currently authenticated user with optional filtering and pagination.
+// @Tags Booking
+// @Accept json
+// @Produce json
+// @Param pagination query gDto.QueryParams false "Pagination parameters"
+// @Param status query string false "Filter by status (pending, confirmed, cancelled)"
+// @Param booking_date query string false "Filter by booking date (YYYY-MM-DD)"
+// @Success 200 {object} response.Data[dto.BookingResponse] "List of user's bookings"
+// @Failure 400 {object} response.Error
+// @Failure 401 {object} response.Error
+// @Failure 500 {object} response.Error
+// @Router /v1/bookings/mybookings [get]
+// @Security BearerAuth
+func (handler *Handler) GetMyBookings(w http.ResponseWriter, r *http.Request) {
+	ctx, scope := handler.otel.NewScope(r.Context(), constant.OtelHandlerScopeName, constant.OtelHandlerScopeName+".GetMyBookings")
+	defer scope.End()
+
+	// Get user_id from context
+	userID, ok := ctx.Value(constant.ContextKeyUserID).(string)
+	if !ok || userID == "" {
+		scope.TraceError(nil)
+		log.Error().Msg("failed to get user ID from context")
+		response.WithError(w, failure.Unauthorized("unauthorized"))
+
+		return
+	}
+
+	queryParams := gDto.QueryParams{}
+	queryParams.FromRequest(r, true)
+
+	status := r.URL.Query().Get(model.FieldStatus)
+	bookingDate := r.URL.Query().Get(model.FieldBookingDate)
+
+	filterGroup := gDto.FilterGroup{
+		Operator: gDto.FilterGroupOperatorAnd,
+		Filters: []any{
+			// Always filter by created_by (user_id)
+			gDto.Filter{
+				Field:    model.FieldCreatedBy,
+				Operator: gDto.FilterOperatorEq,
+				Value:    userID,
+				Table:    model.TableName,
+			},
+		},
+	}
+
+	if status != "" {
+		filterGroup.Filters = append(filterGroup.Filters, gDto.Filter{
+			Field:    model.FieldStatus,
+			Operator: gDto.FilterOperatorEq,
+			Value:    status,
+			Table:    model.TableName,
+		})
+	}
+
+	if bookingDate != "" {
+		filterGroup.Filters = append(filterGroup.Filters, gDto.Filter{
+			Field:    model.FieldBookingDate,
+			Operator: gDto.FilterOperatorEq,
+			Value:    bookingDate,
+			Table:    model.TableName,
+		})
+	}
+
+	bookings, err := handler.service.GetAll(ctx, queryParams, filterGroup)
+	if err != nil {
+		scope.TraceError(err)
+		log.Error().Err(err).Msg("failed to get user bookings")
+
+		response.WithError(w, err)
+
+		return
+	}
+
+	scope.AddEvent("User bookings retrieved successfully for user " + userID)
 
 	response.WithJSON(w, http.StatusOK, bookings)
 }
