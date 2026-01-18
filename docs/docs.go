@@ -1171,9 +1171,7 @@ const docTemplate = `{
                 "level": {
                     "type": "string",
                     "enum": [
-                        "1",
-                        "2",
-                        "3"
+                        "user"
                     ]
                 },
                 "password": {
