@@ -501,6 +501,60 @@ paths:
       summary: Update a booking by ID
       tags:
       - Booking
+  /v1/bookings/mybookings:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all bookings for the currently authenticated user with
+        optional filtering and pagination.
+      parameters:
+      - in: query
+        name: limit
+        type: integer
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: sort_by
+        type: string
+      - enum:
+        - ASC
+        - DESC
+        in: query
+        name: sort_dir
+        type: string
+      - description: Filter by status (pending, confirmed, cancelled)
+        in: query
+        name: status
+        type: string
+      - description: Filter by booking date (YYYY-MM-DD)
+        in: query
+        name: booking_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of user's bookings
+          schema:
+            $ref: '#/definitions/response.Data-dto_BookingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      security:
+      - BearerAuth: []
+      summary: Get my bookings
+      tags:
+      - Booking
   /v1/rooms:
     get:
       consumes:
